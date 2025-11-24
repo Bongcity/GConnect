@@ -1,0 +1,29 @@
+{
+  "name": "gconnect",
+  "version": "1.0.0",
+  "private": true,
+  "description": "GConnect - 네이버 스마트스토어 구글 SEO 플랫폼",
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "clean": "turbo run clean",
+    "db:generate": "pnpm --filter @gconnect/db generate",
+    "db:push": "pnpm --filter @gconnect/db push",
+    "db:studio": "pnpm --filter @gconnect/db studio"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=18.0.0",
+    "pnpm": ">=8.0.0"
+  },
+  "packageManager": "pnpm@8.15.0",
+  "devDependencies": {
+    "turbo": "^1.13.0",
+    "typescript": "^5.3.3"
+  }
+}
+

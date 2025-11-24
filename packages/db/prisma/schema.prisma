@@ -1,0 +1,416 @@
+// GConnect Database Schema
+// Microsoft SQL Server 2022
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlserver"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// IR 사이트 - 문의 관리
+// ============================================
+
+/// IR 사이트에서 접수된 문의
+model IRInquiry {
+  id           Int      @id @default(autoincrement())
+  
+  // 기본 정보
+  storeName    String   @db.NVarChar(200)
+  email        String   @db.NVarChar(200)
+  phone        String?  @db.NVarChar(50)
+  
+  // 문의 내용
+  planIntent   String?  @db.NVarChar(50)  // STARTER, PRO, ENTERPRISE, UNKNOWN
+  inquiryType  String   @db.NVarChar(50)  // ADOPTION, PRICING, TECH, OTHER
+  message      String   @db.NVarChar(Max)
+  
+  // 메타데이터
+  userAgent    String?  @db.NVarChar(500)
+  referrer     String?  @db.NVarChar(500)
+  pageUrl      String?  @db.NVarChar(500)
+  
+  // 처리 상태
+  isHandled    Boolean  @default(false)
+  handledAt    DateTime?
+  handlerUserId String?
+  
+  // 타임스탬프
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  @@map("IRInquiries")
+}
+
+// ============================================
+// 인증 & 사용자 (NextAuth.js)
+// ============================================
+
+/// 사용자 정보
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique @db.NVarChar(255)
+  name          String?   @db.NVarChar(100)
+  password      String?   @db.NVarChar(255) // 이메일 로그인용 (bcrypt 해시)
+  emailVerified DateTime?
+  image         String?   @db.NVarChar(500)
+  
+  // 네이버 연동 정보
+  naverUserId   String?   @unique @db.NVarChar(100)
+  naverEmail    String?   @db.NVarChar(255)
+  
+  // 상점 정보
+  shopName      String?   @db.NVarChar(200)
+  shopStatus    String    @default("PENDING") @db.NVarChar(50) // PENDING, ACTIVE, SUSPENDED
+  naverShopUrl  String?   @db.NVarChar(500) // 네이버 스마트스토어 URL
+  naverShopId   String?   @db.NVarChar(100) // 네이버 스마트스토어 ID
+  businessNumber String?  @db.NVarChar(50)  // 사업자 번호 (선택)
+  phone         String?   @db.NVarChar(50)  // 연락처
+  
+  // 네이버 커머스 API 설정
+  naverClientId     String? @db.NVarChar(255) // 네이버 커머스 API 클라이언트 ID
+  naverClientSecret String? @db.NVarChar(500) // 네이버 커머스 API 클라이언트 Secret (암호화)
+  naverApiEnabled   Boolean @default(false)   // API 연동 활성화 여부
+  
+  // 타임스탬프
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  // 관계
+  accounts      Account[]
+  sessions      Session[]
+  products      Product[]
+  syncLogs      SyncLog[]
+  dailyAnalytics DailyAnalytics[]
+  feedSettings  FeedSettings?
+  syncSchedule  SyncSchedule?
+  webhooks      Webhook[]
+  
+  @@map("Users")
+}
+
+/// OAuth 계정 정보 (NextAuth)
+model Account {
+  id                String  @id @default(uuid())
+  userId            String
+  type              String  @db.NVarChar(50)
+  provider          String  @db.NVarChar(50)
+  providerAccountId String  @db.NVarChar(255)
+  refresh_token     String? @db.NVarChar(Max)
+  access_token      String? @db.NVarChar(Max)
+  expires_at        Int?
+  token_type        String? @db.NVarChar(50)
+  scope             String? @db.NVarChar(500)
+  id_token          String? @db.NVarChar(Max)
+  session_state     String? @db.NVarChar(500)
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([provider, providerAccountId])
+  @@map("Accounts")
+}
+
+/// 세션 정보 (NextAuth)
+model Session {
+  id           String   @id @default(uuid())
+  sessionToken String   @unique @db.NVarChar(500)
+  userId       String
+  expires      DateTime
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("Sessions")
+}
+
+/// 이메일 인증 토큰 (NextAuth)
+model VerificationToken {
+  identifier String   @db.NVarChar(255)
+  token      String   @unique @db.NVarChar(500)
+  expires    DateTime
+  
+  @@unique([identifier, token])
+  @@map("VerificationTokens")
+}
+
+// ============================================
+// 상품 관리
+// ============================================
+
+/// 상품 정보
+model Product {
+  id              String    @id @default(uuid())
+  userId          String    // 상품 소유자
+  
+  // 네이버 스마트스토어 정보
+  naverProductId  String?   @db.NVarChar(100)
+  naverProductNo  String?   @db.NVarChar(50)
+  
+  // 상품 기본 정보
+  name            String    @db.NVarChar(500)
+  description     String?   @db.NVarChar(Max)
+  price           Decimal?  @db.Decimal(12, 2)
+  salePrice       Decimal?  @db.Decimal(12, 2)
+  stockQuantity   Int?
+  
+  // 이미지
+  imageUrl        String?   @db.NVarChar(1000)
+  thumbnailUrl    String?   @db.NVarChar(1000)
+  
+  // 카테고리
+  category1       String?   @db.NVarChar(100)
+  category2       String?   @db.NVarChar(100)
+  category3       String?   @db.NVarChar(100)
+  categoryPath    String?   @db.NVarChar(500)
+  
+  // 구글 노출 상태
+  isActive        Boolean   @default(true)
+  isGoogleExposed Boolean   @default(false)
+  googleUrl       String?   @db.NVarChar(1000)
+  
+  // 동기화 정보
+  lastSyncedAt    DateTime?
+  syncStatus      String    @default("PENDING") @db.NVarChar(50) // PENDING, SYNCED, ERROR
+  syncError       String?   @db.NVarChar(Max)
+  
+  // 타임스탬프
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  // 관계
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  analytics       ProductAnalytics[]
+  
+  @@index([userId])
+  @@index([naverProductId])
+  @@map("Products")
+}
+
+/// 동기화 로그
+model SyncLog {
+  id          String   @id @default(uuid())
+  userId      String
+  syncType    String   @db.NVarChar(50) // PRODUCT_SYNC, MANUAL_SYNC
+  status      String   @db.NVarChar(50) // SUCCESS, FAILED, PARTIAL
+  itemsTotal  Int      @default(0)
+  itemsSynced Int      @default(0)
+  itemsFailed Int      @default(0)
+  errorLog    String?  @db.NVarChar(Max)
+  
+  createdAt   DateTime @default(now())
+  
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@map("SyncLogs")
+}
+
+/// 자동 동기화 스케줄
+model SyncSchedule {
+  id              String   @id @default(uuid())
+  userId          String   @unique
+  
+  // 스케줄 설정
+  isEnabled       Boolean  @default(false)
+  cronExpression  String   @default("0 2 * * *") @db.NVarChar(50) // 기본: 매일 새벽 2시
+  timezone        String   @default("Asia/Seoul") @db.NVarChar(50)
+  
+  // 옵션
+  syncProducts    Boolean  @default(true)  // 상품 동기화
+  updateFeed      Boolean  @default(true)  // 피드 업데이트
+  
+  // 알림 설정
+  notifyOnSuccess Boolean  @default(false)
+  notifyOnError   Boolean  @default(true)
+  notifyEmail     String?  @db.NVarChar(255)
+  
+  // 통계
+  lastRun         DateTime?
+  lastStatus      String?  @db.NVarChar(50) // SUCCESS, FAILED
+  nextRun         DateTime?
+  totalRuns       Int      @default(0)
+  successRuns     Int      @default(0)
+  failedRuns      Int      @default(0)
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("SyncSchedules")
+}
+
+// ============================================
+// 웹훅 시스템
+// ============================================
+
+/// 웹훅 설정
+model Webhook {
+  id              String   @id @default(uuid())
+  userId          String
+  
+  // 웹훅 정보
+  name            String   @db.NVarChar(100)
+  url             String   @db.NVarChar(500)
+  type            String   @db.NVarChar(50) // SLACK, DISCORD, CUSTOM
+  isEnabled       Boolean  @default(true)
+  
+  // 트리거 설정
+  triggerOnSuccess Boolean  @default(true)
+  triggerOnError   Boolean  @default(true)
+  
+  // 인증 (선택)
+  authType        String?  @db.NVarChar(50) // NONE, BEARER, BASIC
+  authValue       String?  @db.NVarChar(500) // 암호화된 토큰/비밀번호
+  
+  // 커스텀 헤더 (JSON)
+  customHeaders   String?  @db.NVarChar(Max)
+  
+  // 통계
+  lastTriggered   DateTime?
+  lastStatus      String?  @db.NVarChar(50) // SUCCESS, FAILED
+  totalTriggers   Int      @default(0)
+  successTriggers Int      @default(0)
+  failedTriggers  Int      @default(0)
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  logs            WebhookLog[]
+  
+  @@index([userId])
+  @@map("Webhooks")
+}
+
+/// 웹훅 실행 로그
+model WebhookLog {
+  id              String   @id @default(uuid())
+  webhookId       String
+  
+  // 요청 정보
+  requestUrl      String   @db.NVarChar(500)
+  requestMethod   String   @db.NVarChar(10)
+  requestBody     String?  @db.NVarChar(Max)
+  requestHeaders  String?  @db.NVarChar(Max)
+  
+  // 응답 정보
+  responseStatus  Int?
+  responseBody    String?  @db.NVarChar(Max)
+  responseTime    Int?     // 응답 시간 (ms)
+  
+  // 상태
+  status          String   @db.NVarChar(50) // SUCCESS, FAILED
+  errorMessage    String?  @db.NVarChar(Max)
+  
+  createdAt       DateTime @default(now())
+  
+  webhook         Webhook  @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+  
+  @@index([webhookId])
+  @@index([createdAt])
+  @@map("WebhookLogs")
+}
+
+// ============================================
+// 분석 & 성과
+// ============================================
+
+/// 일별 성과 통계
+model DailyAnalytics {
+  id                String   @id @default(uuid())
+  userId            String
+  date              DateTime @db.Date // 통계 날짜
+  
+  // 구글 검색 노출
+  googleImpressions Int      @default(0) // 구글 검색 노출 수
+  googleClicks      Int      @default(0) // 구글 검색 클릭 수
+  googleCtr         Float    @default(0) // 클릭률 (CTR)
+  
+  // 상품 통계
+  totalProducts     Int      @default(0) // 총 상품 수
+  activeProducts    Int      @default(0) // 활성 상품 수
+  exposedProducts   Int      @default(0) // 구글 노출 상품 수
+  
+  // 트래픽 소스
+  organicTraffic    Int      @default(0) // 자연 검색 트래픽
+  directTraffic     Int      @default(0) // 직접 방문
+  referralTraffic   Int      @default(0) // 추천 트래픽
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, date])
+  @@index([userId])
+  @@index([date])
+  @@map("DailyAnalytics")
+}
+
+/// 상품별 성과
+model ProductAnalytics {
+  id              String   @id @default(uuid())
+  productId       String
+  date            DateTime @db.Date
+  
+  // 구글 성과
+  impressions     Int      @default(0) // 노출 수
+  clicks          Int      @default(0) // 클릭 수
+  ctr             Float    @default(0) // 클릭률
+  
+  // 순위
+  avgPosition     Float?   // 평균 검색 순위
+  topKeyword      String?  @db.NVarChar(200) // 주요 키워드
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  product         Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  
+  @@unique([productId, date])
+  @@index([productId])
+  @@index([date])
+  @@map("ProductAnalytics")
+}
+
+// ============================================
+// Google Shopping 피드
+// ============================================
+
+/// 피드 설정
+model FeedSettings {
+  id                String   @id @default(uuid())
+  userId            String   @unique
+  
+  // 피드 정보
+  feedTitle         String   @db.NVarChar(200)
+  feedDescription   String?  @db.NVarChar(500)
+  feedUrl           String?  @db.NVarChar(500) // 생성된 피드 URL
+  
+  // 상점 정보
+  storeUrl          String?  @db.NVarChar(500)
+  storeName         String?  @db.NVarChar(200)
+  
+  // Google Merchant Center 정보
+  merchantId        String?  @db.NVarChar(100)
+  
+  // 피드 옵션
+  includeInactive   Boolean  @default(false) // 비활성 상품 포함
+  autoUpdate        Boolean  @default(true)  // 자동 업데이트
+  updateFrequency   Int      @default(24)    // 업데이트 주기 (시간)
+  
+  // 통계
+  lastGenerated     DateTime?
+  totalProducts     Int      @default(0)
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("FeedSettings")
+}
+

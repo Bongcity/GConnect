@@ -1,0 +1,22 @@
+{
+  "name": "@gconnect/db",
+  "version": "1.0.0",
+  "private": true,
+  "main": "./index.ts",
+  "types": "./index.ts",
+  "scripts": {
+    "generate": "prisma generate",
+    "push": "prisma db push",
+    "studio": "prisma studio",
+    "migrate": "prisma migrate dev",
+    "format": "prisma format"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.9.1"
+  },
+  "devDependencies": {
+    "prisma": "^5.9.1",
+    "typescript": "^5.3.3"
+  }
+}
+

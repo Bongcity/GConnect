@@ -1,0 +1,502 @@
+좋아, 이제 **Cursor에 그대로 넣고 “이대로 백엔드 만들어줘”라고 말할 수 있는 PRD**를 한 번에 정리해볼게.
+(Next.js + Prisma + MSSQL + monorepo + 크롤링/배치 전제)
+
+---
+
+# 0. 문서 목적
+
+이 문서는 **GConnect 백엔드(MVP)**를 구현하기 위한 요구사항 정의서(PRD)다.
+Cursor에 붙여넣고, 이 사양에 맞는 코드/폴더/모델/API를 생성하는 데 사용한다.
+
+백엔드 목표:
+
+1. IR 사이트 / 상품 사이트 / Admin / Seller 4개 프론트가 공통으로 사용하는 백엔드 제공
+2. MSSQL 2022를 사용하는 안정적인 도메인 모델 설계
+3. 네이버 스마트스토어 연동(크롤링 + API 키) 기반 상품 인입 파이프라인 구현
+4. 상점/상품/요금제/통계/문의 관리 등 핵심 기능 제공
+
+---
+
+# 1. 시스템/아키텍처 개요
+
+## 1.1 모놀리포 구조
+
+* 레포 루트: `gconnect/`
+* 패키지 구조:
+
+```text
+gconnect/
+  /apps
+    /ir        # ir.gconnect.kr (IR 사이트)
+    /web       # www.gconnect.kr (상품 검색 사이트)
+    /admin     # admin.gconnect.kr (운영자 콘솔)
+    /seller    # seller.gconnect.kr (상점 콘솔)
+    /jobs      # 크롤링/배치용 Node 스크립트
+  /packages
+    /db        # Prisma + MSSQL client
+    /lib       # 공통 유틸(권한 체크, 에러 래핑 등)
+    /ui        # (선택) 공통 UI 컴포넌트
+```
+
+* 각 앱은 **Next.js 14(App Router)** 기반
+* 백엔드는 **Next.js Route Handler**로 구현 (`/app/api/**`),
+  도메인 로직/DB 액세스는 `/packages/db`와 `/packages/lib`에서 공통 제공
+* 크롤링/배치는 `/apps/jobs`의 Node 스크립트를 Windows Task Scheduler로 주기 실행
+
+## 1.2 기술 스택
+
+* 런타임: Node.js (LTS)
+* 웹 프레임워크: Next.js 14 (TS, App Router)
+* ORM: Prisma
+* DB: Microsoft SQL Server 2022
+* 인증: 세션(JWT/쿠키) + Role 기반 권한 (Admin / Seller)
+
+---
+
+# 2. 도메인 모델(요약)
+
+자세한 Prisma 스키마는 이미 초안이 있음. 여기서는 “어떤 테이블이 무엇을 의미하는지” 수준으로만 정리.
+
+### 2.1 상점/요금제
+
+* `Shop`
+
+  * 네이버 스마트스토어와 1:1 매핑되는 상점
+  * 필드: `id`, `name`, `naverShopName`, `naverUrl`, `naverShopId`, `status`, `currentPlanId` 등
+* `Plan`
+
+  * Starter / Pro / Enterprise 등 요금제 정의
+  * 필드: `id`, `name`, `type`, `maxProducts`, `monthlyPrice`, `isActive`
+* `ShopPlanSubscription`
+
+  * 상점별 요금제 구독 이력
+  * 필드: `shopId`, `planId`, `startDate`, `endDate`, `isCurrent`
+
+### 2.2 상품/통계/로그
+
+* `Product`
+
+  * GConnect 내 상품 레코드(네이버 상품을 연동한 것)
+  * 필드: `id`, `shopId`, `naverProductId`, `name`, `price`, `imageUrl`, `categoryPath`, `isActive`, `isPaidMerchant`, `lastSyncedAt`, `lastSyncSource`
+* `ProductStat`
+
+  * 상품별 일 단위 노출/클릭 통계
+  * 필드: `productId`, `shopId`, `date`, `impressions`, `clicks`
+* `ClickLog`
+
+  * “네이버로 이동” 클릭 로그
+  * 필드: `productId`, `shopId`, `ip`, `userAgent`, `referrer`, `clickedAt`
+* `SearchLog`
+
+  * GConnect 검색창/페이지에서 사용자가 검색한 키워드 로그
+  * 필드: `keyword`, `shopId?`, `ip`, `userAgent`, `searchedAt`
+
+### 2.3 네이버 연동/크롤링
+
+* `ShopIntegration`
+
+  * 상점의 네이버 연동 설정 (크롤링 / API)
+  * 필드: `shopId`, `type`(CRAWLING/API), `naverShopName`, `naverUrl`, `naverShopId`, `apiKey`, `apiSecret`, `lastApiTestAt`, `lastApiTestOk`, `isActive`
+* `CrawlJob`
+
+  * 크롤링/API 동기화 작업 단위
+  * 필드: `shopId`, `integrationId?`, `jobType`(FULL/INCREMENTAL/API_SYNC), `status`(PENDING/RUNNING/SUCCESS/FAILED), `startedAt`, `finishedAt`, `processedCount`, `errorMessage`
+
+### 2.4 계정/권한
+
+* `AdminUser`
+
+  * 운영자 계정
+  * 필드: `email`, `passwordHash`, `name`, `role`(SUPER_ADMIN/OPS/CS), `isActive`
+* `SellerUser`
+
+  * 상점 관리자 계정
+  * 필드: `shopId`, `email`, `passwordHash`, `name`, `isOwner`, `isActive`
+
+### 2.5 문의/커뮤니케이션/알림
+
+* `IRInquiry`
+
+  * IR 사이트(ir.gconnect.kr) 문의 위젯에서 들어온 문의
+* `SupportTicket`
+
+  * 고객센터/셀러 문의
+* `ShopMessage`
+
+  * Admin ↔ Seller 간 메시지/공지 (커뮤니케이션 히스토리)
+* `Alert`
+
+  * 경고/알림 (크롤링 실패, API 실패, 요금제 만료 임박 등)
+* `CmsContent`
+
+  * IR/상품 사이트의 일부 텍스트/FAQ 등 관리용 컨텐츠
+
+---
+
+# 3. 인증/권한 모델
+
+* 공통 원칙:
+
+  * Admin와 Seller는 완전히 별도 로그인 시스템
+  * Admin API는 AdminUser 세션 필요
+  * Seller API는 SellerUser 세션 필요
+* 권한 레벨:
+
+  * AdminUser.role:
+
+    * SUPER_ADMIN: 모든 기능
+    * OPS: 운영 기능(상점/상품/크롤링/요금제) 대부분 허용
+    * CS: 문의/메시지 중심, 위험 작업 제한
+  * SellerUser:
+
+    * isOwner=true: 상점 설정/연동/API 키/플랜 요청 가능
+    * isOwner=false: 통계/상품 조회만 가능(추후)
+
+---
+
+# 4. 기능 요구사항 (영역별)
+
+## 4.1 IR 사이트 백엔드 (ir.gconnect.kr)
+
+### 4.1.1 IR 문의 접수 API
+
+* 엔드포인트
+
+  * `POST /api/ir/inquiries`
+* 요청 바디
+
+  * `storeName`: string
+  * `email`: string
+  * `phone?`: string
+  * `planIntent?`: "STARTER" | "PRO" | "ENTERPRISE" | null
+  * `inquiryType`: "ADOPTION" | "PRICING" | "TECH" | "OTHER"
+  * `message`: string
+  * `pageUrl?`: string
+* 동작
+
+  * 입력 검증 후 `IRInquiry` 레코드 생성
+  * userAgent, referrer는 헤더에서 추출하여 저장
+* 응답
+
+  * 성공: `{ ok: true }`
+  * 실패: `{ ok: false, error: "..." }`
+
+---
+
+## 4.2 상품 사이트 백엔드 ([www.gconnect.kr](http://www.gconnect.kr))
+
+### 4.2.1 상품 검색 API
+
+* 엔드포인트
+
+  * `GET /api/products`
+* 쿼리 파라미터
+
+  * `q?`: 키워드
+  * `category?`: 카테고리 슬러그/ID
+  * `shopId?`
+  * `onlyPaid?`: 입점 상점 상품만(true/false)
+  * `page?`, `pageSize?`
+  * `sort?`: "rec" | "latest" | "priceAsc" | "priceDesc"
+* 동작
+
+  * `Product` + `Shop` 조인
+  * 입점 상점 우선 + 관련도 + 클릭/최신성 가중치로 정렬(추천순)
+* 응답
+
+  * `items`: 상품 리스트
+  * `total`: 전체 개수
+
+### 4.2.2 상품 상세 API
+
+* 엔드포인트
+
+  * `GET /api/products/[id]`
+* 동작
+
+  * `Product`와 관련 필드 반환
+* 응답
+
+  * 상품 기본 정보, 연동 상태, 간단 통계(최근 30일 클릭 수 등)
+
+### 4.2.3 검색 로그 & 키워드 추천
+
+* 검색 실행 시:
+
+  * 백엔드에서 `SearchLog`에 `keyword`, ip, userAgent 기록
+* 추천 API:
+
+  * `GET /api/search/suggestions?q=무선`
+  * 응답:
+
+    * `popular`: 인기 검색어 리스트
+    * `related`: q prefix 기반 추천 키워드(간단 LIKE 또는 full-text)
+* 프론트는 localStorage 기반 “최근 검색어”를 합쳐 UI 구성 (백엔드는 별도로 저장하지 않아도 OK)
+
+### 4.2.4 클릭 로그 기록
+
+* `POST /api/products/[id]/click`
+* 동작
+
+  * `ClickLog`에 기록 (productId, shopId, ip, referrer 등)
+  * 이후 프론트에서 네이버 상품 URL로 리다이렉트
+* 응답: `{ ok: true }`
+
+---
+
+## 4.3 Admin 백엔드 (admin.gconnect.kr)
+
+### 4.3.1 상점 관리
+
+* 상점 목록
+
+  * `GET /api/admin/shops`
+  * 필터: 상태, 요금제, 네이버 등급, 연동 상태 등
+* 상점 생성/수정
+
+  * `POST /api/admin/shops`
+  * `PATCH /api/admin/shops/[id]`
+* 상태/요금제 변경
+
+  * `POST /api/admin/shops/[id]/status`
+  * `POST /api/admin/shops/[id]/plan`
+* **대리 로그인 토큰 발급**
+
+  * `POST /api/admin/shops/[id]/impersonate`
+  * Seller 앱에서만 사용할 임시 토큰 발급 (read-only 혹은 제한된 권한)
+
+### 4.3.2 요금제 관리
+
+* `GET /api/admin/plans`
+* `POST /api/admin/plans`
+* `PATCH /api/admin/plans/[id]`
+* 필드: name, type, maxProducts, monthlyPrice, isActive 등
+
+### 4.3.3 상품 관리
+
+* `GET /api/admin/products`
+
+  * 필터: shop, active, error 등
+* `PATCH /api/admin/products/[id]`
+
+  * isActive 변경 등
+* Bulk 작업
+
+  * `POST /api/admin/products/bulk`
+  * body: `productIds: number[]`, `action: "HIDE" | "SHOW" | "RESYNC"`
+
+### 4.3.4 검색/노출 정책 (MVP에선 단순 저장만)
+
+* 정책 조회/저장
+
+  * `GET /api/admin/search-policy`
+  * `POST /api/admin/search-policy`
+* 내용:
+
+  * `paidWeight`, `recencyWeight`, `clickWeight` 등 숫자 값
+* 실제 검색 쿼리 계산 시 이 값을 사용
+
+### 4.3.5 네이버 연동/크롤링 관리
+
+* 상점별 연동 상태 리스트
+
+  * `GET /api/admin/integrations`
+* `CrawlJob` 목록/상세
+
+  * `GET /api/admin/crawl-jobs`
+  * `GET /api/admin/crawl-jobs/[id]`
+  * `POST /api/admin/crawl-jobs/[id]/retry`
+
+### 4.3.6 IR 문의/Support 관리
+
+* `GET /api/admin/ir-inquiries`
+
+  * 필터: isHandled, 기간
+* `POST /api/admin/ir-inquiries/[id]/handle`
+* `GET /api/admin/support-tickets`
+* `POST /api/admin/support-tickets/[id]/status`
+
+### 4.3.7 Admin–Seller 커뮤니케이션
+
+* 메시지 조회
+
+  * `GET /api/admin/shops/[id]/messages`
+* 메시지 생성
+
+  * `POST /api/admin/shops/[id]/messages`
+  * body: `subject?`, `body`, `visibleToSeller=true/false`
+* Seller 앱에서 `/api/seller/messages`로 조회 (아래 참고)
+
+### 4.3.8 알림 관리
+
+* `GET /api/admin/alerts`
+
+  * 필터: type, isRead
+* `POST /api/admin/alerts/[id]/read`
+
+---
+
+## 4.4 Seller 백엔드 (seller.gconnect.kr)
+
+### 4.4.1 Seller 인증
+
+* `POST /api/seller/auth/login`
+
+  * email + password → 세션/토큰 발급
+* `POST /api/seller/auth/logout`
+* `GET /api/seller/auth/me`
+
+  * 현재 로그인 SellerUser + Shop 정보
+
+### 4.4.2 대시보드/헬스 체크
+
+* `GET /api/seller/dashboard`
+
+  * 응답:
+
+    * shop info
+    * plan info
+    * 최근 30일 요약 통계(impressions, clicks, CTR)
+    * **healthCheck** 오브젝트:
+
+      * `hasShopInfo`
+      * `hasRecentSync`
+      * `indexingRate`
+      * `apiKeyValid` 등
+
+### 4.4.3 상품 관리(읽기 + 노출 토글만)
+
+* `GET /api/seller/products`
+
+  * shopId 기반, 검색/필터
+* `GET /api/seller/products/[id]`
+* `PATCH /api/seller/products/[id]`
+
+  * 허용 변경 필드: `isActive` (GConnect 노출 여부만)
+
+### 4.4.4 통계/리포트
+
+* `GET /api/seller/analytics/summary`
+
+  * 기간별 요약
+* `GET /api/seller/analytics/products`
+
+  * 상품별 통계
+* `GET /api/seller/analytics/categories`
+
+  * 카테고리별 통계
+
+### 4.4.5 네이버 연동 설정
+
+* `GET /api/seller/integration`
+
+  * 현재 상점의 ShopIntegration/최근 CrawlJob 요약
+* 상점 정보/크롤링 설정
+
+  * `POST /api/seller/integration/shop-info`
+
+    * body: naverShopName, naverUrl
+  * `POST /api/seller/integration/crawl`
+
+    * 새 CrawlJob(FULL/INCREMENTAL) 생성
+* API 키 설정
+
+  * `POST /api/seller/integration/api-key`
+
+    * apiKey, apiSecret 저장/암호화
+  * `POST /api/seller/integration/api-test`
+
+    * 테스트 호출 실행 → 결과 반환
+  * `POST /api/seller/integration/api-sync`
+
+    * API_SYNC Job 생성
+
+> 이때 API 키 삭제, 연동 해제 같은 “위험 기능”은
+> Seller 프론트에서 **확인 모달**을 띄우고, 백엔드에서도 로그 남김.
+
+### 4.4.6 요금제
+
+* `GET /api/seller/plan`
+
+  * 현재 플랜 + 남은 기간 + 상품 수/최대 상품 수
+* `GET /api/seller/plan/options`
+
+  * 선택 가능한 플랜 목록
+* `POST /api/seller/plan/change-request`
+
+  * 업그레이드/다운그레이드/해지 요청 (실제 변경은 Admin 처리)
+
+### 4.4.7 지원/문의 + 커뮤니케이션 히스토리
+
+* Seller 문의 생성
+
+  * `POST /api/seller/support/tickets`
+* 내 문의 목록
+
+  * `GET /api/seller/support/tickets`
+* Admin–Seller 메시지 히스토리
+
+  * `GET /api/seller/messages`
+  * `POST /api/seller/messages` (Seller→Admin 답장)
+
+---
+
+## 4.5 크롤링/배치 스크립트 (apps/jobs)
+
+별도 Node 스크립트로 구현, Windows Task Scheduler에서 실행.
+
+### 4.5.1 상품 크롤링 스크립트
+
+* 파일 예: `crawl-shop.ts`
+* 입력: `shopId`, `jobId`
+* 동작:
+
+  * `CrawlJob` 상태 PENDING → RUNNING
+  * ShopIntegration 정보 기반 네이버 상품 목록 크롤링
+  * 상품 생성/업데이트 후 `Product`, `ProductStat` 등에 반영
+  * 성공/실패 결과를 `CrawlJob`에 기록
+
+### 4.5.2 API 동기화 스크립트
+
+* 파일 예: `sync-shop-api.ts`
+* 입력: `shopId`, `jobId`
+* 동작:
+
+  * ShopIntegration.apiKey 사용해 네이버 API 호출
+  * 상품 인입/업데이트
+  * `CrawlJob` status 업데이트
+
+### 4.5.3 통계 집계 스크립트
+
+* `update-stats.ts`
+* 매일 실행
+* `ClickLog`, `SearchLog` 집계 → `ProductStat`, 인기 검색어 테이블 등 업데이트
+
+---
+
+# 5. 비기능 요구사항
+
+* 로그/에러
+
+  * 모든 API는 실패 시 `{ ok: false, errorCode, message }` 형식 유지
+  * 크리티컬 작업(요금제 변경, 연동 해제, Bulk 작업)은 별도 Audit Log로 기록
+* 보안
+
+  * 비밀번호는 해시(BCrypt)
+  * API 키/토큰은 암호화 후 DB 저장
+  * Admin/Seller 권한 체크 미들웨어 공통화
+* 성능
+
+  * 목록 API는 페이지네이션 필수 (`page`, `pageSize`)
+  * 검색은 MSSQL Full-Text 또는 LIKE 기반 시작, 이후 필요 시 ElasticSearch 고려
+
+---
+
+이 PRD를 Cursor에 넣고:
+
+* `/packages/db`에 Prisma 설정/클라이언트 생성
+* `/apps/*/app/api/**`에 위 엔드포인트용 Route Handler 생성
+* `/apps/jobs`에 크롤링/배치 스크립트 기본 뼈대 생성
+
+등을 순차적으로 만들게 하면 된다.
+필요하면, 이 PRD를 더 쪼개서 “1단계: IR + 기본 Product API만 구현” 같은 식으로 단계별 구현 계획도 따로 만들어 줄 수 있어.
