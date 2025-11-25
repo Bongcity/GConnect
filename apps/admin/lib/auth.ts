@@ -2,7 +2,6 @@ import { NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import { PrismaAdapter } from '@next-auth/prisma-adapter';
 import { prisma } from '@gconnect/db';
-import bcrypt from 'bcryptjs';
 
 // 관리자 계정 (실제로는 DB에 저장하거나 환경 변수로 관리)
 const ADMIN_CREDENTIALS = {
