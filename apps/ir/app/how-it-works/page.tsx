@@ -134,7 +134,7 @@ export default function HowItWorksPage() {
       <section className="section-padding bg-brand-navy-light">
         <div className="container-custom max-w-5xl">
           <div className="space-y-16">
-            {detailedSteps.map((step, index) => (
+            {detailedSteps.map((step) => (
               <div key={step.number} className="glass-card p-8 lg:p-12">
                 {/* 단계 헤더 */}
                 <div className="flex items-start gap-6 mb-8">
