@@ -1,7 +1,7 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { db } from '@gconnect/db';
+import { prisma } from '@gconnect/db';
 
 // 동기화 로그 조회
 export async function GET(req: Request) {
@@ -18,7 +18,7 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const limit = parseInt(searchParams.get('limit') || '20');
 
-    const logs = await db.syncLog.findMany({
+    const logs = await prisma.syncLog.findMany({
       where: {
         userId: session.user.id,
       },

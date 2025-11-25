@@ -1,11 +1,11 @@
-/**
+﻿/**
  * 웹훅 시스템
  * 
  * 동기화 완료 시 외부 시스템에 알림을 보냅니다.
  */
 
-import { db } from '@gconnect/db';
-import { encrypt, decrypt } from './naver-api';
+import { prisma } from '@gconnect/db';
+import { decrypt } from './crypto';
 
 export interface WebhookPayload {
   event: 'sync.success' | 'sync.error';
@@ -28,7 +28,7 @@ export interface WebhookPayload {
 export async function triggerWebhooks(userId: string, payload: WebhookPayload) {
   try {
     // 사용자의 활성화된 웹훅 조회
-    const webhooks = await db.webhook.findMany({
+    const webhooks = await prisma.webhook.findMany({
       where: {
         userId,
         isEnabled: true,
@@ -63,13 +63,13 @@ async function executeWebhook(webhook: any, payload: WebhookPayload) {
   let responseStatus: number | null = null;
   let responseBody: string | null = null;
   let errorMessage: string | null = null;
+  let requestBody: string = '';
+  let requestHeaders: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
 
   try {
     // 웹훅 타입별 처리
-    let requestBody: string;
-    let requestHeaders: Record<string, string> = {
-      'Content-Type': 'application/json',
-    };
 
     if (webhook.type === 'SLACK') {
       requestBody = JSON.stringify(buildSlackPayload(payload));
@@ -125,7 +125,7 @@ async function executeWebhook(webhook: any, payload: WebhookPayload) {
   const responseTime = Date.now() - startTime;
 
   // 웹훅 로그 저장
-  await db.webhookLog.create({
+  await prisma.webhookLog.create({
     data: {
       webhookId: webhook.id,
       requestUrl: webhook.url,
@@ -141,7 +141,7 @@ async function executeWebhook(webhook: any, payload: WebhookPayload) {
   });
 
   // 웹훅 통계 업데이트
-  await db.webhook.update({
+  await prisma.webhook.update({
     where: { id: webhook.id },
     data: {
       lastTriggered: new Date(),
@@ -295,7 +295,7 @@ function buildDiscordPayload(payload: WebhookPayload) {
  * 웹훅 테스트
  */
 export async function testWebhook(webhookId: string) {
-  const webhook = await db.webhook.findUnique({
+  const webhook = await prisma.webhook.findUnique({
     where: { id: webhookId },
     include: {
       user: {
@@ -328,7 +328,7 @@ export async function testWebhook(webhookId: string) {
   await executeWebhook(webhook, testPayload);
 
   // 최근 로그 조회
-  const log = await db.webhookLog.findFirst({
+  const log = await prisma.webhookLog.findFirst({
     where: { webhookId },
     orderBy: { createdAt: 'desc' },
   });

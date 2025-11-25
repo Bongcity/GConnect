@@ -5,7 +5,7 @@ import { useSession } from 'next-auth/react';
 import { KeyIcon, CheckCircleIcon, XCircleIcon } from '@heroicons/react/24/outline';
 
 export default function NaverApiSettings() {
-  const { data: session } = useSession();
+  const { data: _session } = useSession();
   const [isLoading, setIsLoading] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
   const [isFetching, setIsFetching] = useState(true);

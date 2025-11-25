@@ -76,6 +76,10 @@ export class NaverApiClient {
       // 토큰 만료 시간 설정 (발급 시간 + 유효기간 - 1분 여유)
       this.tokenExpiry = Date.now() + (data.expires_in - 60) * 1000;
 
+      if (!this.accessToken) {
+        throw new Error('Access token not received');
+      }
+
       return this.accessToken;
     } catch (error) {
       console.error('Get access token error:', error);

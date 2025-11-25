@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { db } from '@gconnect/db';
+import { prisma } from '@gconnect/db';
 import { subDays, startOfDay, endOfDay, format } from 'date-fns';
 
 // 분석 데이터 조회
@@ -23,7 +23,7 @@ export async function GET(req: Request) {
     const startDate = startOfDay(subDays(endDate, days));
 
     // 기간 내 분석 데이터 조회
-    let analyticsData = await db.dailyAnalytics.findMany({
+    let analyticsData = await prisma.dailyAnalytics.findMany({
       where: {
         userId: session.user.id,
         date: {
@@ -42,7 +42,7 @@ export async function GET(req: Request) {
     }
 
     // 상품 통계
-    const products = await db.product.findMany({
+    const products = await prisma.product.findMany({
       where: { userId: session.user.id },
       select: {
         id: true,
@@ -134,7 +134,7 @@ async function generateSampleAnalytics(userId: string, days: number) {
     const activeProducts = Math.floor(totalProducts * (Math.random() * 0.2 + 0.8));
     const exposedProducts = Math.floor(activeProducts * (Math.random() * 0.3 + 0.5));
 
-    const analytics = await db.dailyAnalytics.create({
+    const analytics = await prisma.dailyAnalytics.create({
       data: {
         userId,
         date,

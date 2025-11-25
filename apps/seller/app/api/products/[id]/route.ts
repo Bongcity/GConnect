@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { db } from '@gconnect/db';
+import { prisma } from '@gconnect/db';
 
 // 상품 상세 조회
 export async function GET(
-  req: Request,
+  _req: Request,
   { params }: { params: { id: string } }
 ) {
   try {
@@ -18,7 +18,7 @@ export async function GET(
       );
     }
 
-    const product = await db.product.findFirst({
+    const product = await prisma.product.findFirst({
       where: {
         id: params.id,
         userId: session.user.id,
@@ -75,7 +75,7 @@ export async function PUT(
     } = body;
 
     // 상품 소유권 확인
-    const product = await db.product.findFirst({
+    const product = await prisma.product.findFirst({
       where: {
         id: params.id,
         userId: session.user.id,
@@ -90,7 +90,7 @@ export async function PUT(
     }
 
     // 상품 수정
-    const updatedProduct = await db.product.update({
+    const updatedProduct = await prisma.product.update({
       where: { id: params.id },
       data: {
         name: name || product.name,
@@ -121,7 +121,7 @@ export async function PUT(
 
 // 상품 삭제
 export async function DELETE(
-  req: Request,
+  _req: Request,
   { params }: { params: { id: string } }
 ) {
   try {
@@ -135,7 +135,7 @@ export async function DELETE(
     }
 
     // 상품 소유권 확인
-    const product = await db.product.findFirst({
+    const product = await prisma.product.findFirst({
       where: {
         id: params.id,
         userId: session.user.id,
@@ -150,7 +150,7 @@ export async function DELETE(
     }
 
     // 상품 삭제
-    await db.product.delete({
+    await prisma.product.delete({
       where: { id: params.id },
     });
 

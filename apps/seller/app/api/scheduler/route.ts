@@ -1,7 +1,7 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { db } from '@gconnect/db';
+import { prisma } from '@gconnect/db';
 import { registerCronJob, stopCronJob } from '@/lib/scheduler';
 
 // 스케줄 설정 조회
@@ -16,7 +16,7 @@ export async function GET() {
       );
     }
 
-    const schedule = await db.syncSchedule.findUnique({
+    const schedule = await prisma.syncSchedule.findUnique({
       where: { userId: session.user.id },
     });
 
@@ -58,7 +58,7 @@ export async function POST(req: Request) {
     } = body;
 
     // 기존 스케줄 확인
-    const existingSchedule = await db.syncSchedule.findUnique({
+    const existingSchedule = await prisma.syncSchedule.findUnique({
       where: { userId: session.user.id },
     });
 
@@ -66,7 +66,7 @@ export async function POST(req: Request) {
 
     if (existingSchedule) {
       // 수정
-      schedule = await db.syncSchedule.update({
+      schedule = await prisma.syncSchedule.update({
         where: { id: existingSchedule.id },
         data: {
           isEnabled: isEnabled !== undefined ? isEnabled : existingSchedule.isEnabled,
@@ -90,7 +90,7 @@ export async function POST(req: Request) {
       });
     } else {
       // 생성
-      schedule = await db.syncSchedule.create({
+      schedule = await prisma.syncSchedule.create({
         data: {
           userId: session.user.id,
           isEnabled: isEnabled || false,
@@ -150,7 +150,7 @@ export async function DELETE() {
     stopCronJob(session.user.id);
 
     // 스케줄 삭제
-    await db.syncSchedule.delete({
+    await prisma.syncSchedule.delete({
       where: { userId: session.user.id },
     });
 

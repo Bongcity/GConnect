@@ -1,7 +1,7 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { db } from '@gconnect/db';
+import { prisma } from '@gconnect/db';
 
 // 상품 목록 조회
 export async function GET() {
@@ -15,7 +15,7 @@ export async function GET() {
       );
     }
 
-    const products = await db.product.findMany({
+    const products = await prisma.product.findMany({
       where: { userId: session.user.id },
       orderBy: { createdAt: 'desc' },
     });
@@ -79,7 +79,7 @@ export async function POST(req: Request) {
       .join(' > ');
 
     // 상품 생성
-    const product = await db.product.create({
+    const product = await prisma.product.create({
       data: {
         userId: session.user.id,
         name,

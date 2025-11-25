@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { db } from '@gconnect/db';
-import { getDecryptedNaverApiKey } from '@/app/api/user/naver-api/route';
+import { prisma } from '@gconnect/db';
+import { getDecryptedNaverApiKey } from '@/lib/naver-utils';
 import { NaverApiClient, transformNaverProduct } from '@/lib/naver-api';
 
 // 가짜 샘플 상품 데이터
@@ -118,7 +118,7 @@ export async function POST() {
     }
 
     // 동기화 로그 생성
-    const syncLog = await db.syncLog.create({
+    const syncLog = await prisma.syncLog.create({
       data: {
         userId: session.user.id,
         syncType: useRealApi ? 'PRODUCT_SYNC' : 'MANUAL_SYNC',
@@ -146,7 +146,7 @@ export async function POST() {
 
         // 기존 상품 확인 (naverProductId로)
         const existingProduct = productData.naverProductId
-          ? await db.product.findFirst({
+          ? await prisma.product.findFirst({
               where: {
                 userId: session.user.id,
                 naverProductId: productData.naverProductId,
@@ -156,7 +156,7 @@ export async function POST() {
 
         if (existingProduct) {
           // 기존 상품 업데이트
-          await db.product.update({
+          await prisma.product.update({
             where: { id: existingProduct.id },
             data: {
               name: productData.name,
@@ -176,7 +176,7 @@ export async function POST() {
           });
         } else {
           // 새 상품 생성
-          await db.product.create({
+          await prisma.product.create({
             data: {
               userId: session.user.id,
               name: productData.name,
@@ -208,7 +208,7 @@ export async function POST() {
     }
 
     // 동기화 로그 업데이트
-    await db.syncLog.update({
+    await prisma.syncLog.update({
       where: { id: syncLog.id },
       data: {
         itemsSynced: synced,

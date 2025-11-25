@@ -1,7 +1,7 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { db } from '@gconnect/db';
+import { prisma } from '@gconnect/db';
 import bcrypt from 'bcryptjs';
 
 // 비밀번호 변경
@@ -57,7 +57,7 @@ export async function PUT(req: Request) {
     }
 
     // 사용자 조회
-    const user = await db.user.findUnique({
+    const user = await prisma.user.findUnique({
       where: { id: session.user.id },
     });
 
@@ -85,7 +85,7 @@ export async function PUT(req: Request) {
     const hashedPassword = await bcrypt.hash(newPassword, 12);
 
     // 비밀번호 업데이트
-    await db.user.update({
+    await prisma.user.update({
       where: { id: session.user.id },
       data: {
         password: hashedPassword,

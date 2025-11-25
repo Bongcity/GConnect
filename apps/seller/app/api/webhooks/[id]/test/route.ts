@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { db } from '@gconnect/db';
+import { prisma } from '@gconnect/db';
 import { testWebhook } from '@/lib/webhook';
 
 // 웹훅 테스트
 export async function POST(
-  req: Request,
+  _req: Request,
   { params }: { params: { id: string } }
 ) {
   try {
@@ -20,7 +20,7 @@ export async function POST(
     }
 
     // 웹훅 존재 확인
-    const webhook = await db.webhook.findFirst({
+    const webhook = await prisma.webhook.findFirst({
       where: {
         id: params.id,
         userId: session.user.id,

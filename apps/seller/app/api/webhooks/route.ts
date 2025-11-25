@@ -1,8 +1,8 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { db } from '@gconnect/db';
-import { encrypt } from '@/lib/naver-api';
+import { prisma } from '@gconnect/db';
+import { encrypt } from '@/lib/crypto';
 
 // 웹훅 목록 조회
 export async function GET() {
@@ -16,7 +16,7 @@ export async function GET() {
       );
     }
 
-    const webhooks = await db.webhook.findMany({
+    const webhooks = await prisma.webhook.findMany({
       where: {
         userId: session.user.id,
       },
@@ -88,7 +88,7 @@ export async function POST(req: Request) {
     }
 
     // 웹훅 생성
-    const webhook = await db.webhook.create({
+    const webhook = await prisma.webhook.create({
       data: {
         userId: session.user.id,
         name,

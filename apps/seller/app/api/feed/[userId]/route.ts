@@ -1,17 +1,17 @@
 import { NextResponse } from 'next/server';
-import { db } from '@gconnect/db';
+import { prisma } from '@gconnect/db';
 import { generateGoogleShoppingFeed, productToFeedProduct } from '@/lib/google-feed';
 
 // 피드 XML 제공 (공개 API - 인증 불필요)
 export async function GET(
-  req: Request,
+  _req: Request,
   { params }: { params: { userId: string } }
 ) {
   try {
     const userId = params.userId;
 
     // 피드 설정 조회
-    const feedSettings = await db.feedSettings.findUnique({
+    const feedSettings = await prisma.feedSettings.findUnique({
       where: { userId },
       include: {
         user: {
@@ -28,7 +28,7 @@ export async function GET(
     }
 
     // 상품 조회
-    const products = await db.product.findMany({
+    const products = await prisma.product.findMany({
       where: {
         userId,
         isActive: feedSettings.includeInactive ? undefined : true,
@@ -60,7 +60,7 @@ export async function GET(
     const xml = generateGoogleShoppingFeed(feedConfig, feedProducts);
 
     // 피드 통계 업데이트
-    await db.feedSettings.update({
+    await prisma.feedSettings.update({
       where: { id: feedSettings.id },
       data: {
         lastGenerated: new Date(),

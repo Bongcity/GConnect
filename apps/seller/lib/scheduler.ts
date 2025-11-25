@@ -1,12 +1,12 @@
-/**
+﻿/**
  * 자동 동기화 스케줄러
  * 
  * node-cron을 사용하여 사용자별 동기화 작업을 예약하고 실행합니다.
  */
 
 import cron from 'node-cron';
-import { db } from '@gconnect/db';
-import NaverApiClient from './naver-api';
+import { prisma } from '@gconnect/db';
+import { NaverApiClient, transformNaverProduct } from './naver-api';
 import { triggerWebhooks, WebhookPayload } from './webhook';
 
 // 실행 중인 크론 작업들을 저장
@@ -21,7 +21,7 @@ export async function initScheduler() {
   
   try {
     // 활성화된 모든 스케줄 조회
-    const schedules = await db.syncSchedule.findMany({
+    const schedules = await prisma.syncSchedule.findMany({
       where: {
         isEnabled: true,
       },
@@ -118,7 +118,7 @@ export async function executeSyncJob(userId: string) {
 
   try {
     // 스케줄 정보 조회
-    const schedule = await db.syncSchedule.findUnique({
+    const schedule = await prisma.syncSchedule.findUnique({
       where: { userId },
       include: {
         user: {
@@ -151,7 +151,7 @@ export async function executeSyncJob(userId: string) {
     }
 
     // 동기화 로그 저장
-    await db.syncLog.create({
+    await prisma.syncLog.create({
       data: {
         userId,
         syncType: 'AUTO_SYNC',
@@ -164,7 +164,7 @@ export async function executeSyncJob(userId: string) {
     });
 
     // 스케줄 통계 업데이트
-    await db.syncSchedule.update({
+    await prisma.syncSchedule.update({
       where: { id: schedule.id },
       data: {
         lastRun: new Date(),
@@ -212,7 +212,7 @@ export async function executeSyncJob(userId: string) {
     console.error(`❌ 동기화 실패 - 사용자: ${userId}`, error);
 
     // 실패 로그 저장
-    await db.syncLog.create({
+    await prisma.syncLog.create({
       data: {
         userId,
         syncType: 'AUTO_SYNC',
@@ -225,7 +225,7 @@ export async function executeSyncJob(userId: string) {
     });
 
     // 스케줄 통계 업데이트
-    const schedule = await db.syncSchedule.findUnique({ 
+    const schedule = await prisma.syncSchedule.findUnique({ 
       where: { userId },
       include: {
         user: {
@@ -236,7 +236,7 @@ export async function executeSyncJob(userId: string) {
       },
     });
     if (schedule) {
-      await db.syncSchedule.update({
+      await prisma.syncSchedule.update({
         where: { id: schedule.id },
         data: {
           lastRun: new Date(),
@@ -289,7 +289,10 @@ async function syncProducts(userId: string, user: any) {
     }
 
     // 네이버 API 클라이언트 생성
-    const naverClient = new NaverApiClient(user.naverClientId, user.naverClientSecret);
+    const naverClient = new NaverApiClient({
+      clientId: user.naverClientId,
+      clientSecret: user.naverClientSecret,
+    });
 
     // 네이버에서 모든 상품 조회
     const naverProducts = await naverClient.getAllProducts();
@@ -298,10 +301,10 @@ async function syncProducts(userId: string, user: any) {
     // 각 상품을 DB에 저장/업데이트
     for (const naverProduct of naverProducts) {
       try {
-        const productData = naverClient.transformNaverProduct(naverProduct);
+        const productData = transformNaverProduct(naverProduct);
 
         // 기존 상품 확인
-        const existingProduct = await db.product.findFirst({
+        const existingProduct = await prisma.product.findFirst({
           where: {
             userId,
             naverProductId: productData.naverProductId,
@@ -310,7 +313,7 @@ async function syncProducts(userId: string, user: any) {
 
         if (existingProduct) {
           // 업데이트
-          await db.product.update({
+          await prisma.product.update({
             where: { id: existingProduct.id },
             data: {
               ...productData,
@@ -321,7 +324,7 @@ async function syncProducts(userId: string, user: any) {
           });
         } else {
           // 생성
-          await db.product.create({
+          await prisma.product.create({
             data: {
               userId,
               ...productData,
@@ -348,14 +351,14 @@ async function syncProducts(userId: string, user: any) {
 /**
  * 다음 실행 시간 계산
  */
-async function updateNextRunTime(scheduleId: string, cronExpression: string, timezone: string) {
+async function updateNextRunTime(scheduleId: string, _cronExpression: string, _timezone: string) {
   try {
     // 간단한 계산: 현재 시간 기준으로 다음 실행 시간 추정
     // 실제로는 cron-parser 라이브러리 사용 권장
     const now = new Date();
     const nextRun = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 기본 24시간 후
 
-    await db.syncSchedule.update({
+    await prisma.syncSchedule.update({
       where: { id: scheduleId },
       data: { nextRun },
     });

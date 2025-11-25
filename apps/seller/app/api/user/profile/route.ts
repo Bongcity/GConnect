@@ -1,7 +1,7 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { db } from '@gconnect/db';
+import { prisma } from '@gconnect/db';
 
 // 프로필 조회
 export async function GET() {
@@ -15,7 +15,7 @@ export async function GET() {
       );
     }
 
-    const user = await db.user.findUnique({
+    const user = await prisma.user.findUnique({
       where: { id: session.user.id },
       select: {
         id: true,
@@ -84,7 +84,7 @@ export async function PUT(req: Request) {
     }
 
     // 프로필 업데이트
-    const updatedUser = await db.user.update({
+    const updatedUser = await prisma.user.update({
       where: { id: session.user.id },
       data: {
         name: name.trim(),

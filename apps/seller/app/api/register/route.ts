@@ -1,6 +1,6 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
-import { db } from '@gconnect/db';
+import { prisma } from '@gconnect/db';
 import { registerSchema } from '@gconnect/lib/validations';
 
 export async function POST(req: Request) {
@@ -11,7 +11,7 @@ export async function POST(req: Request) {
     const validated = registerSchema.parse(body);
 
     // 이메일 중복 확인
-    const existingUser = await db.user.findUnique({
+    const existingUser = await prisma.user.findUnique({
       where: { email: validated.email },
     });
 
@@ -26,7 +26,7 @@ export async function POST(req: Request) {
     const hashedPassword = await bcrypt.hash(validated.password, 12);
 
     // 사용자 생성
-    const user = await db.user.create({
+    const user = await prisma.user.create({
       data: {
         email: validated.email,
         password: hashedPassword,

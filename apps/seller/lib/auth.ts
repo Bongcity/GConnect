@@ -1,12 +1,12 @@
-import { NextAuthOptions } from 'next-auth';
+﻿import { NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import NaverProvider from 'next-auth/providers/naver';
 import { PrismaAdapter } from '@next-auth/prisma-adapter';
-import { db } from '@gconnect/db';
+import { prisma } from '@gconnect/db';
 import bcrypt from 'bcryptjs';
 
 export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(db),
+  adapter: PrismaAdapter(prisma),
   providers: [
     // 이메일/비밀번호 로그인
     CredentialsProvider({
@@ -20,7 +20,7 @@ export const authOptions: NextAuthOptions = {
           throw new Error('이메일과 비밀번호를 입력해주세요.');
         }
 
-        const user = await db.user.findUnique({
+        const user = await prisma.user.findUnique({
           where: { email: credentials.email },
         });
 
@@ -73,7 +73,7 @@ export const authOptions: NextAuthOptions = {
         const naverUserId = account.providerAccountId;
         
         // User 테이블에 네이버 정보 업데이트
-        await db.user.update({
+        await prisma.user.update({
           where: { id: token.id as string },
           data: {
             naverUserId,

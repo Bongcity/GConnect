@@ -1,7 +1,7 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { db } from '@gconnect/db';
+import { prisma } from '@gconnect/db';
 
 // 피드 설정 조회
 export async function GET() {
@@ -15,7 +15,7 @@ export async function GET() {
       );
     }
 
-    const feedSettings = await db.feedSettings.findUnique({
+    const feedSettings = await prisma.feedSettings.findUnique({
       where: { userId: session.user.id },
     });
 
@@ -79,7 +79,7 @@ export async function POST(req: Request) {
     }
 
     // 기존 설정 확인
-    const existingSettings = await db.feedSettings.findUnique({
+    const existingSettings = await prisma.feedSettings.findUnique({
       where: { userId: session.user.id },
     });
 
@@ -87,7 +87,7 @@ export async function POST(req: Request) {
 
     if (existingSettings) {
       // 수정
-      feedSettings = await db.feedSettings.update({
+      feedSettings = await prisma.feedSettings.update({
         where: { id: existingSettings.id },
         data: {
           feedTitle,
@@ -102,7 +102,7 @@ export async function POST(req: Request) {
       });
     } else {
       // 생성
-      feedSettings = await db.feedSettings.create({
+      feedSettings = await prisma.feedSettings.create({
         data: {
           userId: session.user.id,
           feedTitle,

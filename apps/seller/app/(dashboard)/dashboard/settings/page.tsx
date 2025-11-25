@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from 'react';
 import { Tab } from '@headlessui/react';
 import ShopSettings from '@/components/settings/ShopSettings';
 import ProfileSettings from '@/components/settings/ProfileSettings';

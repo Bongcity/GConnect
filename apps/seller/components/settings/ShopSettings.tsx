@@ -5,7 +5,7 @@ import { useSession } from 'next-auth/react';
 import { BuildingStorefrontIcon, LinkIcon, PhoneIcon, IdentificationIcon } from '@heroicons/react/24/outline';
 
 export default function ShopSettings() {
-  const { data: session, update } = useSession();
+  const { data: _session, update } = useSession();
   const [isLoading, setIsLoading] = useState(false);
   const [isFetching, setIsFetching] = useState(true);
   const [message, setMessage] = useState({ type: '', text: '' });

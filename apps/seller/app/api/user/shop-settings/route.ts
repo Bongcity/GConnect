@@ -1,7 +1,7 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { db } from '@gconnect/db';
+import { prisma } from '@gconnect/db';
 
 // 상점 설정 수정
 export async function PUT(req: Request) {
@@ -34,7 +34,7 @@ export async function PUT(req: Request) {
     }
 
     // 상점 설정 업데이트
-    const updatedUser = await db.user.update({
+    const updatedUser = await prisma.user.update({
       where: { id: session.user.id },
       data: {
         shopName: shopName.trim(),

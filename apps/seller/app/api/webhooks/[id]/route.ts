@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { db } from '@gconnect/db';
-import { encrypt } from '@/lib/naver-api';
+import { prisma } from '@gconnect/db';
+import { encrypt } from '@/lib/crypto';
 
 // 웹훅 상세 조회
 export async function GET(
-  req: Request,
+  _req: Request,
   { params }: { params: { id: string } }
 ) {
   try {
@@ -19,7 +19,7 @@ export async function GET(
       );
     }
 
-    const webhook = await db.webhook.findFirst({
+    const webhook = await prisma.webhook.findFirst({
       where: {
         id: params.id,
         userId: session.user.id,
@@ -68,7 +68,7 @@ export async function PUT(
     }
 
     // 웹훅 존재 확인
-    const existingWebhook = await db.webhook.findFirst({
+    const existingWebhook = await prisma.webhook.findFirst({
       where: {
         id: params.id,
         userId: session.user.id,
@@ -116,7 +116,7 @@ export async function PUT(
     }
 
     // 웹훅 수정
-    const webhook = await db.webhook.update({
+    const webhook = await prisma.webhook.update({
       where: { id: params.id },
       data: {
         name: name || existingWebhook.name,
@@ -153,7 +153,7 @@ export async function PUT(
 
 // 웹훅 삭제
 export async function DELETE(
-  req: Request,
+  _req: Request,
   { params }: { params: { id: string } }
 ) {
   try {
@@ -167,7 +167,7 @@ export async function DELETE(
     }
 
     // 웹훅 존재 확인
-    const webhook = await db.webhook.findFirst({
+    const webhook = await prisma.webhook.findFirst({
       where: {
         id: params.id,
         userId: session.user.id,
@@ -182,7 +182,7 @@ export async function DELETE(
     }
 
     // 웹훅 삭제
-    await db.webhook.delete({
+    await prisma.webhook.delete({
       where: { id: params.id },
     });
 
