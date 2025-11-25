@@ -1,16 +1,16 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { prisma } from '@gconnect/db';
+import { db } from '@gconnect/db';
 
-// ?�점 ?�정 ?�정
+// 상점 설정 수정
 export async function PUT(req: Request) {
   try {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
       return NextResponse.json(
-        { error: '?�증???�요?�니??' },
+        { error: '인증이 필요합니다.' },
         { status: 401 }
       );
     }
@@ -18,23 +18,23 @@ export async function PUT(req: Request) {
     const body = await req.json();
     const { shopName, naverShopUrl, naverShopId, businessNumber, phone } = body;
 
-    // ?�수 ?�드 검�?
+    // 필수 필드 검증
     if (!shopName || shopName.trim().length < 2) {
       return NextResponse.json(
-        { error: '?�점명�? 최소 2???�상?�어???�니??' },
+        { error: '상점명은 최소 2자 이상이어야 합니다.' },
         { status: 400 }
       );
     }
 
     if (!naverShopUrl || !naverShopUrl.includes('smartstore.naver.com')) {
       return NextResponse.json(
-        { error: '?�바�??�이�??�마?�스?�어 URL???�력?�주?�요.' },
+        { error: '올바른 네이버 스마트스토어 URL을 입력해주세요.' },
         { status: 400 }
       );
     }
 
-    // ?�점 ?�정 ?�데?�트
-    const updatedUser = await prisma.user.update({
+    // 상점 설정 업데이트
+    const updatedUser = await db.user.update({
       where: { id: session.user.id },
       data: {
         shopName: shopName.trim(),
@@ -42,7 +42,7 @@ export async function PUT(req: Request) {
         naverShopId: naverShopId?.trim() || null,
         businessNumber: businessNumber?.trim() || null,
         phone: phone?.trim() || null,
-        shopStatus: 'ACTIVE', // ?�점 ?�정???�료?�면 ACTIVE�?변�?
+        shopStatus: 'ACTIVE', // 상점 설정이 완료되면 ACTIVE로 변경
       },
       select: {
         id: true,
@@ -63,7 +63,7 @@ export async function PUT(req: Request) {
   } catch (error) {
     console.error('Update shop settings error:', error);
     return NextResponse.json(
-      { error: '?�점 ?�정 ?�정 �??�류가 발생?�습?�다.' },
+      { error: '상점 설정 수정 중 오류가 발생했습니다.' },
       { status: 500 }
     );
   }

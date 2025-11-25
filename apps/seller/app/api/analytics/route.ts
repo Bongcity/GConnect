@@ -1,17 +1,17 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { prisma } from '@gconnect/db';
+import { db } from '@gconnect/db';
 import { subDays, startOfDay, endOfDay, format } from 'date-fns';
 
-// 분석 ?�이??조회
+// 분석 데이터 조회
 export async function GET(req: Request) {
   try {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
       return NextResponse.json(
-        { error: '?�증???�요?�니??' },
+        { error: '인증이 필요합니다.' },
         { status: 401 }
       );
     }
@@ -22,8 +22,8 @@ export async function GET(req: Request) {
     const endDate = endOfDay(new Date());
     const startDate = startOfDay(subDays(endDate, days));
 
-    // 기간 ??분석 ?�이??조회
-    let analyticsData = await prisma.dailyAnalytics.findMany({
+    // 기간 내 분석 데이터 조회
+    let analyticsData = await db.dailyAnalytics.findMany({
       where: {
         userId: session.user.id,
         date: {
@@ -36,13 +36,13 @@ export async function GET(req: Request) {
       },
     });
 
-    // ?�이?��? ?�으�??�플 ?�이???�성
+    // 데이터가 없으면 샘플 데이터 생성
     if (analyticsData.length === 0) {
       analyticsData = await generateSampleAnalytics(session.user.id, days);
     }
 
-    // ?�품 ?�계
-    const products = await prisma.product.findMany({
+    // 상품 통계
+    const products = await db.product.findMany({
       where: { userId: session.user.id },
       select: {
         id: true,
@@ -56,7 +56,7 @@ export async function GET(req: Request) {
     const activeProducts = products.filter((p) => p.isActive).length;
     const exposedProducts = products.filter((p) => p.isGoogleExposed).length;
 
-    // ?�계 계산
+    // 합계 계산
     const totals = analyticsData.reduce(
       (acc, day) => ({
         impressions: acc.impressions + day.googleImpressions,
@@ -101,13 +101,13 @@ export async function GET(req: Request) {
   } catch (error) {
     console.error('Get analytics error:', error);
     return NextResponse.json(
-      { error: '분석 ?�이??조회 �??�류가 발생?�습?�다.' },
+      { error: '분석 데이터 조회 중 오류가 발생했습니다.' },
       { status: 500 }
     );
   }
 }
 
-// ?�플 분석 ?�이???�성
+// 샘플 분석 데이터 생성
 async function generateSampleAnalytics(userId: string, days: number) {
   const analyticsData = [];
   const today = new Date();
@@ -115,7 +115,7 @@ async function generateSampleAnalytics(userId: string, days: number) {
   for (let i = days - 1; i >= 0; i--) {
     const date = startOfDay(subDays(today, i));
 
-    // ?�덤 ?�이???�성 (주말?� ??��, ?�일?� ?�게)
+    // 랜덤 데이터 생성 (주말은 낮게, 평일은 높게)
     const isWeekend = date.getDay() === 0 || date.getDay() === 6;
     const baseFactor = isWeekend ? 0.6 : 1;
 
@@ -125,16 +125,16 @@ async function generateSampleAnalytics(userId: string, days: number) {
 
     const totalTraffic = clicks;
     const organicTraffic = Math.floor(totalTraffic * (Math.random() * 0.3 + 0.5)); // 50-80%
-    const directTraffic = Math.floor((totalTraffic - organicTraffic) * (Math.random() * 0.5 + 0.3)); // ?�머지??30-80%
+    const directTraffic = Math.floor((totalTraffic - organicTraffic) * (Math.random() * 0.5 + 0.3)); // 나머지의 30-80%
     const referralTraffic = totalTraffic - organicTraffic - directTraffic;
 
-    // ?�품 ??(?�진??증�?)
+    // 상품 수 (점진적 증가)
     const dayProgress = (days - i) / days;
     const totalProducts = Math.floor(6 * dayProgress) + 1;
     const activeProducts = Math.floor(totalProducts * (Math.random() * 0.2 + 0.8));
     const exposedProducts = Math.floor(activeProducts * (Math.random() * 0.3 + 0.5));
 
-    const analytics = await prisma.dailyAnalytics.create({
+    const analytics = await db.dailyAnalytics.create({
       data: {
         userId,
         date,

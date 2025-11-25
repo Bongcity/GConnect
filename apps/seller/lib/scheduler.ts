@@ -1,26 +1,26 @@
-﻿/**
- * ?먮룞 ?숆린???ㅼ?以꾨윭
+/**
+ * 자동 동기화 스케줄러
  * 
- * node-cron???ъ슜?섏뿬 ?ъ슜?먮퀎 ?숆린???묒뾽???덉빟?섍퀬 ?ㅽ뻾?⑸땲??
+ * node-cron을 사용하여 사용자별 동기화 작업을 예약하고 실행합니다.
  */
 
 import cron from 'node-cron';
-import { prisma } from '@gconnect/db';
+import { db } from '@gconnect/db';
 import NaverApiClient from './naver-api';
 import { triggerWebhooks, WebhookPayload } from './webhook';
 
-// ?ㅽ뻾 以묒씤 ?щ줎 ?묒뾽?ㅼ쓣 ???
+// 실행 중인 크론 작업들을 저장
 const cronJobs = new Map<string, cron.ScheduledTask>();
 
 /**
- * ?ㅼ?以꾨윭 珥덇린??
- * 紐⑤뱺 ?쒖꽦?붾맂 ?ㅼ?以꾩쓣 濡쒕뱶?섍퀬 ?щ줎 ?묒뾽 ?깅줉
+ * 스케줄러 초기화
+ * 모든 활성화된 스케줄을 로드하고 크론 작업 등록
  */
 export async function initScheduler() {
-  console.log('?봽 ?ㅼ?以꾨윭 珥덇린??以?..');
+  console.log('🔄 스케줄러 초기화 중...');
   
   try {
-    // ?쒖꽦?붾맂 紐⑤뱺 ?ㅼ?以?議고쉶
+    // 활성화된 모든 스케줄 조회
     const schedules = await db.syncSchedule.findMany({
       where: {
         isEnabled: true,
@@ -39,43 +39,43 @@ export async function initScheduler() {
       },
     });
 
-    console.log(`?뱥 ?쒖꽦?붾맂 ?ㅼ?以?${schedules.length}媛?諛쒓껄`);
+    console.log(`📋 활성화된 스케줄 ${schedules.length}개 발견`);
 
-    // 媛??ㅼ?以꾩뿉 ????щ줎 ?묒뾽 ?깅줉
+    // 각 스케줄에 대해 크론 작업 등록
     for (const schedule of schedules) {
       await registerCronJob(schedule);
     }
 
-    console.log('???ㅼ?以꾨윭 珥덇린???꾨즺');
+    console.log('✅ 스케줄러 초기화 완료');
   } catch (error) {
-    console.error('???ㅼ?以꾨윭 珥덇린???ㅽ뙣:', error);
+    console.error('❌ 스케줄러 초기화 실패:', error);
   }
 }
 
 /**
- * ?щ줎 ?묒뾽 ?깅줉
+ * 크론 작업 등록
  */
 export async function registerCronJob(schedule: any) {
   const { id, userId, cronExpression, timezone } = schedule;
 
-  // ?대? ?깅줉???묒뾽???덉쑝硫?以묒?
+  // 이미 등록된 작업이 있으면 중지
   if (cronJobs.has(userId)) {
     cronJobs.get(userId)?.stop();
     cronJobs.delete(userId);
   }
 
   try {
-    // ?щ줎 ?쒗쁽???좏슚??寃??
+    // 크론 표현식 유효성 검사
     if (!cron.validate(cronExpression)) {
-      console.error(`???섎せ??cron ?쒗쁽?? ${cronExpression}`);
+      console.error(`❌ 잘못된 cron 표현식: ${cronExpression}`);
       return;
     }
 
-    // ?щ줎 ?묒뾽 ?앹꽦
+    // 크론 작업 생성
     const task = cron.schedule(
       cronExpression,
       async () => {
-        console.log(`?? ?먮룞 ?숆린???쒖옉 - ?ъ슜?? ${userId}`);
+        console.log(`🚀 자동 동기화 시작 - 사용자: ${userId}`);
         await executeSyncJob(userId);
       },
       {
@@ -85,28 +85,28 @@ export async function registerCronJob(schedule: any) {
     );
 
     cronJobs.set(userId, task);
-    console.log(`???щ줎 ?묒뾽 ?깅줉 ?꾨즺 - ?ъ슜?? ${userId}, ?쒗쁽?? ${cronExpression}`);
+    console.log(`✅ 크론 작업 등록 완료 - 사용자: ${userId}, 표현식: ${cronExpression}`);
 
-    // ?ㅼ쓬 ?ㅽ뻾 ?쒓컙 怨꾩궛 諛??낅뜲?댄듃
+    // 다음 실행 시간 계산 및 업데이트
     await updateNextRunTime(id, cronExpression, timezone);
   } catch (error) {
-    console.error(`???щ줎 ?묒뾽 ?깅줉 ?ㅽ뙣 - ?ъ슜?? ${userId}`, error);
+    console.error(`❌ 크론 작업 등록 실패 - 사용자: ${userId}`, error);
   }
 }
 
 /**
- * ?щ줎 ?묒뾽 以묒?
+ * 크론 작업 중지
  */
 export function stopCronJob(userId: string) {
   if (cronJobs.has(userId)) {
     cronJobs.get(userId)?.stop();
     cronJobs.delete(userId);
-    console.log(`?뱄툘 ?щ줎 ?묒뾽 以묒? - ?ъ슜?? ${userId}`);
+    console.log(`⏹️ 크론 작업 중지 - 사용자: ${userId}`);
   }
 }
 
 /**
- * ?숆린???묒뾽 ?ㅽ뻾
+ * 동기화 작업 실행
  */
 export async function executeSyncJob(userId: string) {
   const startTime = Date.now();
@@ -117,7 +117,7 @@ export async function executeSyncJob(userId: string) {
   let itemsFailed = 0;
 
   try {
-    // ?ㅼ?以??뺣낫 議고쉶
+    // 스케줄 정보 조회
     const schedule = await db.syncSchedule.findUnique({
       where: { userId },
       include: {
@@ -134,10 +134,10 @@ export async function executeSyncJob(userId: string) {
     });
 
     if (!schedule) {
-      throw new Error('?ㅼ?以꾩쓣 李얠쓣 ???놁뒿?덈떎.');
+      throw new Error('스케줄을 찾을 수 없습니다.');
     }
 
-    // ?곹뭹 ?숆린??
+    // 상품 동기화
     if (schedule.syncProducts) {
       const syncResult = await syncProducts(userId, schedule.user);
       itemsTotal = syncResult.total;
@@ -146,11 +146,11 @@ export async function executeSyncJob(userId: string) {
 
       if (syncResult.failed > 0) {
         status = 'FAILED';
-        errorLog = `${syncResult.failed}媛??곹뭹 ?숆린???ㅽ뙣`;
+        errorLog = `${syncResult.failed}개 상품 동기화 실패`;
       }
     }
 
-    // ?숆린??濡쒓렇 ???
+    // 동기화 로그 저장
     await db.syncLog.create({
       data: {
         userId,
@@ -163,7 +163,7 @@ export async function executeSyncJob(userId: string) {
       },
     });
 
-    // ?ㅼ?以??듦퀎 ?낅뜲?댄듃
+    // 스케줄 통계 업데이트
     await db.syncSchedule.update({
       where: { id: schedule.id },
       data: {
@@ -176,9 +176,9 @@ export async function executeSyncJob(userId: string) {
     });
 
     const duration = Date.now() - startTime;
-    console.log(`???숆린???꾨즺 - ?ъ슜?? ${userId}, ?곹깭: ${status}, ?뚯슂?쒓컙: ${duration}ms`);
+    console.log(`✅ 동기화 완료 - 사용자: ${userId}, 상태: ${status}, 소요시간: ${duration}ms`);
 
-    // ?뚮┝ ?꾩넚
+    // 알림 전송
     if (
       (status === 'SUCCESS' && schedule.notifyOnSuccess) ||
       (status === 'FAILED' && schedule.notifyOnError)
@@ -191,7 +191,7 @@ export async function executeSyncJob(userId: string) {
       });
     }
 
-    // ?뱁썒 ?몃━嫄?
+    // 웹훅 트리거
     const webhookPayload: WebhookPayload = {
       event: status === 'SUCCESS' ? 'sync.success' : 'sync.error',
       timestamp: new Date().toISOString(),
@@ -209,9 +209,9 @@ export async function executeSyncJob(userId: string) {
   } catch (error: any) {
     status = 'FAILED';
     errorLog = error.message;
-    console.error(`???숆린???ㅽ뙣 - ?ъ슜?? ${userId}`, error);
+    console.error(`❌ 동기화 실패 - 사용자: ${userId}`, error);
 
-    // ?ㅽ뙣 濡쒓렇 ???
+    // 실패 로그 저장
     await db.syncLog.create({
       data: {
         userId,
@@ -224,7 +224,7 @@ export async function executeSyncJob(userId: string) {
       },
     });
 
-    // ?ㅼ?以??듦퀎 ?낅뜲?댄듃
+    // 스케줄 통계 업데이트
     const schedule = await db.syncSchedule.findUnique({ 
       where: { userId },
       include: {
@@ -246,14 +246,14 @@ export async function executeSyncJob(userId: string) {
         },
       });
 
-      // ?ㅻ쪟 ?뚮┝
+      // 오류 알림
       if (schedule.notifyOnError) {
         await sendNotification(schedule, 'FAILED', {
           error: errorLog,
         });
       }
 
-      // ?뱁썒 ?몃━嫄?
+      // 웹훅 트리거
       const webhookPayload: WebhookPayload = {
         event: 'sync.error',
         timestamp: new Date().toISOString(),
@@ -273,7 +273,7 @@ export async function executeSyncJob(userId: string) {
 }
 
 /**
- * ?곹뭹 ?숆린??
+ * 상품 동기화
  */
 async function syncProducts(userId: string, user: any) {
   let total = 0;
@@ -281,26 +281,26 @@ async function syncProducts(userId: string, user: any) {
   let failed = 0;
 
   try {
-    // ?ㅼ씠踰?API媛 ?쒖꽦?붾릺???덈뒗吏 ?뺤씤
+    // 네이버 API가 활성화되어 있는지 확인
     if (!user.naverApiEnabled || !user.naverClientId || !user.naverClientSecret) {
-      // API 誘몄꽕?????섑뵆 ?곗씠???숆린??
-      console.log('?좑툘 ?ㅼ씠踰?API 誘몄꽕??- ?섑뵆 ?곗씠???ъ슜');
+      // API 미설정 시 샘플 데이터 동기화
+      console.log('⚠️ 네이버 API 미설정 - 샘플 데이터 사용');
       return { total: 0, synced: 0, failed: 0 };
     }
 
-    // ?ㅼ씠踰?API ?대씪?댁뼵???앹꽦
+    // 네이버 API 클라이언트 생성
     const naverClient = new NaverApiClient(user.naverClientId, user.naverClientSecret);
 
-    // ?ㅼ씠踰꾩뿉??紐⑤뱺 ?곹뭹 議고쉶
+    // 네이버에서 모든 상품 조회
     const naverProducts = await naverClient.getAllProducts();
     total = naverProducts.length;
 
-    // 媛??곹뭹??DB??????낅뜲?댄듃
+    // 각 상품을 DB에 저장/업데이트
     for (const naverProduct of naverProducts) {
       try {
         const productData = naverClient.transformNaverProduct(naverProduct);
 
-        // 湲곗〈 ?곹뭹 ?뺤씤
+        // 기존 상품 확인
         const existingProduct = await db.product.findFirst({
           where: {
             userId,
@@ -309,7 +309,7 @@ async function syncProducts(userId: string, user: any) {
         });
 
         if (existingProduct) {
-          // ?낅뜲?댄듃
+          // 업데이트
           await db.product.update({
             where: { id: existingProduct.id },
             data: {
@@ -320,7 +320,7 @@ async function syncProducts(userId: string, user: any) {
             },
           });
         } else {
-          // ?앹꽦
+          // 생성
           await db.product.create({
             data: {
               userId,
@@ -333,12 +333,12 @@ async function syncProducts(userId: string, user: any) {
 
         synced++;
       } catch (error) {
-        console.error('?곹뭹 ?숆린???ㅻ쪟:', error);
+        console.error('상품 동기화 오류:', error);
         failed++;
       }
     }
   } catch (error) {
-    console.error('?곹뭹 紐⑸줉 議고쉶 ?ㅻ쪟:', error);
+    console.error('상품 목록 조회 오류:', error);
     throw error;
   }
 
@@ -346,60 +346,60 @@ async function syncProducts(userId: string, user: any) {
 }
 
 /**
- * ?ㅼ쓬 ?ㅽ뻾 ?쒓컙 怨꾩궛
+ * 다음 실행 시간 계산
  */
 async function updateNextRunTime(scheduleId: string, cronExpression: string, timezone: string) {
   try {
-    // 媛꾨떒??怨꾩궛: ?꾩옱 ?쒓컙 湲곗??쇰줈 ?ㅼ쓬 ?ㅽ뻾 ?쒓컙 異붿젙
-    // ?ㅼ젣濡쒕뒗 cron-parser ?쇱씠釉뚮윭由??ъ슜 沅뚯옣
+    // 간단한 계산: 현재 시간 기준으로 다음 실행 시간 추정
+    // 실제로는 cron-parser 라이브러리 사용 권장
     const now = new Date();
-    const nextRun = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 湲곕낯 24?쒓컙 ??
+    const nextRun = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 기본 24시간 후
 
     await db.syncSchedule.update({
       where: { id: scheduleId },
       data: { nextRun },
     });
   } catch (error) {
-    console.error('?ㅼ쓬 ?ㅽ뻾 ?쒓컙 ?낅뜲?댄듃 ?ㅽ뙣:', error);
+    console.error('다음 실행 시간 업데이트 실패:', error);
   }
 }
 
 /**
- * ?뚮┝ ?꾩넚
+ * 알림 전송
  */
 async function sendNotification(schedule: any, status: string, details: any) {
   try {
-    console.log(`?벁 ?뚮┝ ?꾩넚 - ?ъ슜?? ${schedule.userId}, ?곹깭: ${status}`);
+    console.log(`📧 알림 전송 - 사용자: ${schedule.userId}, 상태: ${status}`);
     
-    // ?ㅼ젣 ?대찓???꾩넚 濡쒖쭅? 異뷀썑 援ы쁽
-    // ?? Nodemailer, SendGrid, AWS SES ??
+    // 실제 이메일 전송 로직은 추후 구현
+    // 예: Nodemailer, SendGrid, AWS SES 등
     
     if (schedule.notifyEmail) {
-      console.log(`?벂 ?대찓?? ${schedule.notifyEmail}`);
-      console.log(`?뱤 ?곸꽭 ?뺣낫:`, details);
+      console.log(`📨 이메일: ${schedule.notifyEmail}`);
+      console.log(`📊 상세 정보:`, details);
     }
     
-    // TODO: ?ㅼ젣 ?대찓???꾩넚 援ы쁽
+    // TODO: 실제 이메일 전송 구현
     // await sendEmail({
     //   to: schedule.notifyEmail,
-    //   subject: `[GConnect] ?먮룞 ?숆린??${status === 'SUCCESS' ? '?꾨즺' : '?ㅽ뙣'}`,
+    //   subject: `[GConnect] 자동 동기화 ${status === 'SUCCESS' ? '완료' : '실패'}`,
     //   body: generateEmailBody(schedule, status, details),
     // });
   } catch (error) {
-    console.error('?뚮┝ ?꾩넚 ?ㅽ뙣:', error);
+    console.error('알림 전송 실패:', error);
   }
 }
 
 /**
- * 紐⑤뱺 ?щ줎 ?묒뾽 以묒?
+ * 모든 크론 작업 중지
  */
 export function stopAllCronJobs() {
-  console.log('?뱄툘 紐⑤뱺 ?щ줎 ?묒뾽 以묒? 以?..');
+  console.log('⏹️ 모든 크론 작업 중지 중...');
   cronJobs.forEach((task, userId) => {
     task.stop();
-    console.log(`  ?뱄툘 ${userId}`);
+    console.log(`  ⏹️ ${userId}`);
   });
   cronJobs.clear();
-  console.log('??紐⑤뱺 ?щ줎 ?묒뾽 以묒? ?꾨즺');
+  console.log('✅ 모든 크론 작업 중지 완료');
 }
 

@@ -229,7 +229,7 @@ export default function AnalyticsPage() {
                 fill="#8884d8"
                 dataKey="value"
               >
-                {trafficData.map((_entry, index) => (
+                {trafficData.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                 ))}
               </Pie>

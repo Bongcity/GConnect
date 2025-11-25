@@ -1,124 +1,221 @@
-﻿import { prisma } from '@gconnect/db';
-import crypto from 'crypto';
+/**
+ * 네이버 커머스 API 클라이언트
+ * 
+ * 참고: https://developer.pay.naver.com/docs/v2/api
+ */
 
-// ?뷀샇????(?섍꼍 蹂?섎줈 愿由ы빐????
-const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || 'gconnect-default-encryption-key-32';
-const ALGORITHM = 'aes-256-cbc';
-
-// ?뷀샇???⑥닔
-export function encrypt(text: string): string {
-  const key = Buffer.from(ENCRYPTION_KEY.padEnd(32, '0').substring(0, 32));
-  const iv = crypto.randomBytes(16);
-  const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
-  let encrypted = cipher.update(text, 'utf8', 'hex');
-  encrypted += cipher.final('hex');
-  return iv.toString('hex') + ':' + encrypted;
-}
-
-// 蹂듯샇???⑥닔
-export function decrypt(text: string): string {
-  try {
-    const key = Buffer.from(ENCRYPTION_KEY.padEnd(32, '0').substring(0, 32));
-    const parts = text.split(':');
-    const iv = Buffer.from(parts[0], 'hex');
-    const encryptedText = parts[1];
-    const decipher = crypto.createDecipheriv(ALGORITHM, key, iv);
-    let decrypted = decipher.update(encryptedText, 'hex', 'utf8');
-    decrypted += decipher.final('utf8');
-    return decrypted;
-  } catch (error) {
-    console.error('Decryption error:', error);
-    return '';
-  }
-}
-
-// 蹂듯샇?붾맂 Secret 媛?몄삤湲?(?대? ?ъ슜??
-export async function getDecryptedNaverApiKey(userId: string): Promise<{
+export interface NaverApiCredentials {
   clientId: string;
   clientSecret: string;
-} | null> {
-  try {
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        naverClientId: true,
-        naverClientSecret: true,
-        naverApiEnabled: true,
-      },
-    });
-
-    if (!user || !user.naverClientId || !user.naverClientSecret || !user.naverApiEnabled) {
-      return null;
-    }
-
-    const decryptedSecret = decrypt(user.naverClientSecret);
-
-    return {
-      clientId: user.naverClientId,
-      clientSecret: decryptedSecret,
-    };
-  } catch (error) {
-    console.error('Get decrypted API key error:', error);
-    return null;
-  }
 }
 
-// ?ㅼ씠踰?API ?대씪?댁뼵??(湲곕낯 export)
-export default class NaverApiClient {
+export interface NaverProduct {
+  id: string;
+  name: string;
+  salePrice: number;
+  stockQuantity: number;
+  images?: string[];
+  category: {
+    wholeCategoryId: string;
+    wholeCategoryName: string;
+  };
+  detailAttribute?: {
+    productInfoProvidedNotice?: {
+      productInfoProvidedNoticeType?: string;
+    };
+  };
+  status: string;
+}
+
+export interface NaverProductListResponse {
+  products: NaverProduct[];
+  totalCount: number;
+}
+
+export class NaverApiClient {
   private clientId: string;
   private clientSecret: string;
+  private accessToken?: string;
+  private tokenExpiry?: number;
 
-  constructor(clientId: string, clientSecret: string) {
-    this.clientId = clientId;
-    this.clientSecret = clientSecret;
+  constructor(credentials: NaverApiCredentials) {
+    this.clientId = credentials.clientId;
+    this.clientSecret = credentials.clientSecret;
   }
 
-  async getProducts() {
-    // ?ㅼ씠踰?而ㅻ㉧??API ?몄텧 濡쒖쭅
-    // ?ㅼ젣 援ы쁽 ?꾩슂
-    return [];
+  /**
+   * Access Token 발급
+   */
+  private async getAccessToken(): Promise<string> {
+    // 토큰이 유효하면 재사용
+    if (this.accessToken && this.tokenExpiry && Date.now() < this.tokenExpiry) {
+      return this.accessToken;
+    }
+
+    try {
+      const response = await fetch('https://api.commerce.naver.com/external/v1/oauth2/token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+          client_id: this.clientId,
+          client_secret: this.clientSecret,
+          grant_type: 'client_credentials',
+          type: 'SELF',
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to get access token');
+      }
+
+      const data = await response.json();
+      this.accessToken = data.access_token;
+      // 토큰 만료 시간 설정 (발급 시간 + 유효기간 - 1분 여유)
+      this.tokenExpiry = Date.now() + (data.expires_in - 60) * 1000;
+
+      return this.accessToken;
+    } catch (error) {
+      console.error('Get access token error:', error);
+      throw new Error('네이버 API 인증에 실패했습니다.');
+    }
   }
 
-  async getProductDetail(productId: string) {
-    // ?곹뭹 ?곸꽭 ?뺣낫 議고쉶
-    return null;
+  /**
+   * 상품 목록 조회
+   */
+  async getProducts(page: number = 1, size: number = 100): Promise<NaverProductListResponse> {
+    try {
+      const accessToken = await this.getAccessToken();
+
+      const response = await fetch(
+        `https://api.commerce.naver.com/external/v2/products?page=${page}&size=${size}`,
+        {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to fetch products');
+      }
+
+      const data = await response.json();
+
+      return {
+        products: data.contents || [],
+        totalCount: data.totalElements || 0,
+      };
+    } catch (error) {
+      console.error('Get products error:', error);
+      throw new Error('상품 목록 조회에 실패했습니다.');
+    }
   }
 
-  async getAllProducts(maxPages: number = 3) {
-    // ?ㅼ씠踰?而ㅻ㉧??API濡??곹뭹 紐⑸줉 議고쉶
-    // ?ㅼ젣 援ы쁽 ?꾩슂
-    return [];
+  /**
+   * 상품 상세 조회
+   */
+  async getProduct(productId: string): Promise<NaverProduct | null> {
+    try {
+      const accessToken = await this.getAccessToken();
+
+      const response = await fetch(
+        `https://api.commerce.naver.com/external/v2/products/${productId}`,
+        {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          return null;
+        }
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to fetch product');
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Get product error:', error);
+      throw new Error('상품 조회에 실패했습니다.');
+    }
   }
 
-  transformNaverProduct(naverProduct: any) {
-    // ?ㅼ씠踰??곹뭹 ?곗씠?곕? GConnect ?뺤떇?쇰줈 蹂??
-    return {
-      name: naverProduct.name || '',
-      description: naverProduct.description || '',
-      price: naverProduct.price || 0,
-      salePrice: naverProduct.salePrice || naverProduct.price || 0,
-      stockQuantity: naverProduct.stockQuantity || 0,
-      category1: naverProduct.category1 || '',
-      category2: naverProduct.category2 || '',
-      category3: naverProduct.category3 || '',
-      imageUrl: naverProduct.imageUrl || '',
-      naverProductId: naverProduct.id || '',
-    };
+  /**
+   * 여러 페이지의 상품을 한번에 가져오기
+   */
+  async getAllProducts(maxPages: number = 10): Promise<NaverProduct[]> {
+    const allProducts: NaverProduct[] = [];
+    let currentPage = 1;
+    let hasMore = true;
+
+    while (hasMore && currentPage <= maxPages) {
+      try {
+        const result = await this.getProducts(currentPage, 100);
+        allProducts.push(...result.products);
+
+        // 더 이상 상품이 없으면 종료
+        if (result.products.length === 0 || allProducts.length >= result.totalCount) {
+          hasMore = false;
+        }
+
+        currentPage++;
+      } catch (error) {
+        console.error(`Failed to fetch page ${currentPage}:`, error);
+        hasMore = false;
+      }
+    }
+
+    return allProducts;
   }
 }
 
-// ?낅┰ ?⑥닔濡쒕룄 ?ъ슜 媛??
-export function transformNaverProduct(naverProduct: any) {
+/**
+ * 네이버 상품 데이터를 내부 형식으로 변환
+ */
+export function transformNaverProduct(naverProduct: NaverProduct): {
+  name: string;
+  description?: string;
+  price: number;
+  salePrice?: number;
+  stockQuantity?: number;
+  imageUrl?: string;
+  thumbnailUrl?: string;
+  category1?: string;
+  category2?: string;
+  category3?: string;
+  categoryPath?: string;
+  naverProductId: string;
+  naverProductNo?: string;
+} {
+  // 카테고리 파싱
+  const categories = naverProduct.category?.wholeCategoryName?.split('>').map(c => c.trim()) || [];
+
   return {
-    name: naverProduct.name || '',
-    description: naverProduct.description || '',
-    price: naverProduct.price || 0,
-    salePrice: naverProduct.salePrice || naverProduct.price || 0,
-    stockQuantity: naverProduct.stockQuantity || 0,
-    category1: naverProduct.category1 || '',
-    category2: naverProduct.category2 || '',
-    category3: naverProduct.category3 || '',
-    imageUrl: naverProduct.imageUrl || '',
-    naverProductId: naverProduct.id || '',
+    name: naverProduct.name,
+    description: naverProduct.detailAttribute?.productInfoProvidedNotice?.productInfoProvidedNoticeType,
+    price: naverProduct.salePrice,
+    salePrice: naverProduct.salePrice, // 네이버에서 할인가 정보가 별도로 있다면 수정 필요
+    stockQuantity: naverProduct.stockQuantity,
+    imageUrl: naverProduct.images?.[0],
+    thumbnailUrl: naverProduct.images?.[0],
+    category1: categories[0],
+    category2: categories[1],
+    category3: categories[2],
+    categoryPath: categories.join(' > '),
+    naverProductId: naverProduct.id,
+    naverProductNo: naverProduct.id,
   };
 }
+

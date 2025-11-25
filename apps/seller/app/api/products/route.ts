@@ -1,21 +1,21 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { prisma } from '@gconnect/db';
+import { db } from '@gconnect/db';
 
-// ?�품 목록 조회
+// 상품 목록 조회
 export async function GET() {
   try {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
       return NextResponse.json(
-        { error: '?�증???�요?�니??' },
+        { error: '인증이 필요합니다.' },
         { status: 401 }
       );
     }
 
-    const products = await prisma.product.findMany({
+    const products = await db.product.findMany({
       where: { userId: session.user.id },
       orderBy: { createdAt: 'desc' },
     });
@@ -31,20 +31,20 @@ export async function GET() {
   } catch (error) {
     console.error('Get products error:', error);
     return NextResponse.json(
-      { error: '?�품 목록 조회 �??�류가 발생?�습?�다.' },
+      { error: '상품 목록 조회 중 오류가 발생했습니다.' },
       { status: 500 }
     );
   }
 }
 
-// ?�품 추�?
+// 상품 추가
 export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
       return NextResponse.json(
-        { error: '?�증???�요?�니??' },
+        { error: '인증이 필요합니다.' },
         { status: 401 }
       );
     }
@@ -65,21 +65,21 @@ export async function POST(req: Request) {
       naverProductNo,
     } = body;
 
-    // ?�수 ?�드 검�?
+    // 필수 필드 검증
     if (!name || !price) {
       return NextResponse.json(
-        { error: '?�품명과 가격�? ?�수?�니??' },
+        { error: '상품명과 가격은 필수입니다.' },
         { status: 400 }
       );
     }
 
-    // 카테고리 경로 ?�성
+    // 카테고리 경로 생성
     const categoryPath = [category1, category2, category3]
       .filter(Boolean)
       .join(' > ');
 
-    // ?�품 ?�성
-    const product = await prisma.product.create({
+    // 상품 생성
+    const product = await db.product.create({
       data: {
         userId: session.user.id,
         name,
@@ -112,7 +112,7 @@ export async function POST(req: Request) {
   } catch (error) {
     console.error('Create product error:', error);
     return NextResponse.json(
-      { error: '?�품 추�? �??�류가 발생?�습?�다.' },
+      { error: '상품 추가 중 오류가 발생했습니다.' },
       { status: 500 }
     );
   }
