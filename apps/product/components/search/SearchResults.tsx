@@ -1,4 +1,4 @@
-import { db } from '@gconnect/db';
+import { prisma } from '@gconnect/db';
 import ProductCard from '../products/ProductCard';
 import Link from 'next/link';
 import { MagnifyingGlassIcon } from '@heroicons/react/24/outline';
@@ -46,7 +46,7 @@ async function searchProducts(searchParams: SearchResultsProps['searchParams']) 
 
   try {
     const [products, total] = await Promise.all([
-      db.product.findMany({
+      prisma.product.findMany({
         where,
         orderBy,
         skip,
@@ -59,7 +59,7 @@ async function searchProducts(searchParams: SearchResultsProps['searchParams']) 
           },
         },
       }),
-      db.product.count({ where }),
+      prisma.product.count({ where }),
     ]);
 
     const totalPages = Math.ceil(total / pageSize);

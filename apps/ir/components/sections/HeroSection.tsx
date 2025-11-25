@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowRightIcon, SparklesIcon, CheckCircleIcon, BoltIcon } from '@heroicons/react/24/outline';
+import { ArrowRightIcon, BoltIcon } from '@heroicons/react/24/outline';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { useState } from 'react';

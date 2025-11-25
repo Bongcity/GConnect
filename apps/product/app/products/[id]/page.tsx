@@ -3,11 +3,11 @@ import { Metadata } from 'next';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import ProductDetail from '@/components/products/ProductDetail';
-import { db } from '@gconnect/db';
+import { prisma } from '@gconnect/db';
 
 async function getProduct(id: string) {
   try {
-    const product = await db.product.findUnique({
+    const product = await prisma.product.findUnique({
       where: { id },
       include: {
         user: {
@@ -39,11 +39,11 @@ export async function generateMetadata({
     };
   }
 
-  const price = product.discountPrice || product.price;
+  const price = product.salePrice || product.price;
 
   return {
     title: `${product.name} - GConnect`,
-    description: product.description?.substring(0, 155) || `${product.name} - ${price.toLocaleString()}원`,
+    description: product.description?.substring(0, 155) || `${product.name}${price ? ` - ${price.toLocaleString()}원` : ''}`,
     openGraph: {
       title: product.name,
       description: product.description?.substring(0, 155) || product.name,

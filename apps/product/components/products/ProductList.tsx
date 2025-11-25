@@ -1,4 +1,4 @@
-import { db } from '@gconnect/db';
+import { prisma } from '@gconnect/db';
 import ProductCard from './ProductCard';
 import Link from 'next/link';
 
@@ -37,7 +37,7 @@ async function getProducts(searchParams: ProductListProps['searchParams']) {
 
   try {
     const [products, total] = await Promise.all([
-      db.product.findMany({
+      prisma.product.findMany({
         where,
         orderBy,
         skip,
@@ -50,7 +50,7 @@ async function getProducts(searchParams: ProductListProps['searchParams']) {
           },
         },
       }),
-      db.product.count({ where }),
+      prisma.product.count({ where }),
     ]);
 
     const totalPages = Math.ceil(total / pageSize);

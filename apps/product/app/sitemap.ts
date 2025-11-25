@@ -1,12 +1,12 @@
 import { MetadataRoute } from 'next';
-import { db } from '@gconnect/db';
+import { prisma } from '@gconnect/db';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = process.env.NEXT_PUBLIC_PRODUCT_URL || 'http://localhost:3001';
 
   try {
     // 활성화된 상품 조회
-    const products = await db.product.findMany({
+    const products = await prisma.product.findMany({
       where: {
         isActive: true,
         isGoogleExposed: true,

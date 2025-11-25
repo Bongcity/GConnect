@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
     const [products, total] = await Promise.all([
       prisma.product.findMany({
         where: {
-          status: 'ACTIVE',
+          isActive: true,
         },
         include: {
           user: {
@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
       }),
       prisma.product.count({
         where: {
-          status: 'ACTIVE',
+          isActive: true,
         },
       }),
     ]);

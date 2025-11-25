@@ -103,7 +103,7 @@ export default function MissionSection() {
           viewport={{ once: true }}
           className="grid grid-cols-1 md:grid-cols-3 gap-8"
         >
-          {values.map((value, index) => (
+          {values.map((value) => (
             <motion.div
               key={value.name}
               variants={item}

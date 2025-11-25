@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import Image from 'next/image';
 import { Bars3Icon, XMarkIcon, ArrowRightIcon, UserCircleIcon } from '@heroicons/react/24/outline';
 
 const navigation = [

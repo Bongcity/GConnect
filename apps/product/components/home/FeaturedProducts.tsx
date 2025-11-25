@@ -1,10 +1,10 @@
 import Link from 'next/link';
 import ProductCard from '@/components/products/ProductCard';
-import { db } from '@gconnect/db';
+import { prisma } from '@gconnect/db';
 
 async function getFeaturedProducts() {
   try {
-    const products = await db.product.findMany({
+    const products = await prisma.product.findMany({
       where: {
         isActive: true,
         isGoogleExposed: true,
