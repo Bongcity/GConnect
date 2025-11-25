@@ -106,7 +106,7 @@ export default function SyncLogsPage() {
             아직 동기화 기록이 없습니다
           </h3>
           <p className="text-white/60">
-            상품 관리 페이지에서 "동기화" 버튼을 눌러 시작하거나,
+            상품 관리 페이지에서 &apos;동기화&apos; 버튼을 눌러 시작하거나,
             <br />
             설정에서 자동 동기화를 활성화하세요.
           </p>

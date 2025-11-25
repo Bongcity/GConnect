@@ -291,11 +291,11 @@ export default function FeedSettings() {
           📌 Google Merchant Center 등록 방법
         </h3>
         <ol className="text-xs text-white/70 space-y-1 ml-4 list-decimal">
-          <li>위 양식을 작성하고 "피드 생성/수정" 클릭</li>
+          <li>위 양식을 작성하고 &apos;피드 생성/수정&apos; 클릭</li>
           <li>생성된 피드 URL 복사</li>
           <li>Google Merchant Center 접속: <a href="https://merchants.google.com" target="_blank" rel="noopener noreferrer" className="text-brand-neon hover:underline">merchants.google.com</a></li>
-          <li>"제품" → "피드" → "피드 추가" 선택</li>
-          <li>복사한 URL을 "예약된 가져오기" 에 입력</li>
+          <li>&apos;제품&apos; → &apos;피드&apos; → &apos;피드 추가&apos; 선택</li>
+          <li>복사한 URL을 &apos;예약된 가져오기&apos; 에 입력</li>
           <li>피드 이름 입력 후 저장</li>
         </ol>
       </div>

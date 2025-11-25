@@ -140,7 +140,7 @@ export default function NaverApiSettings() {
         <ol className="text-xs text-white/70 space-y-1 ml-4 list-decimal">
           <li>네이버 커머스 API 센터 접속: <a href="https://commerce.naver.com" target="_blank" rel="noopener noreferrer" className="text-brand-neon hover:underline">commerce.naver.com</a></li>
           <li>스마트스토어 관리자 로그인</li>
-          <li>"상품 관리" → "API 연동 설정" 메뉴</li>
+          <li>&apos;상품 관리&apos; → &apos;API 연동 설정&apos; 메뉴</li>
           <li>API 이용 신청 및 승인 대기</li>
           <li>승인 후 Client ID와 Client Secret 발급</li>
         </ol>
