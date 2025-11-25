@@ -1,10 +1,10 @@
-/**
- * 웹훅 시스템
+﻿/**
+ * ?뱁썒 ?쒖뒪??
  * 
- * 동기화 완료 시 외부 시스템에 알림을 보냅니다.
+ * ?숆린???꾨즺 ???몃? ?쒖뒪?쒖뿉 ?뚮┝??蹂대깄?덈떎.
  */
 
-import { db } from '@gconnect/db';
+import { prisma } from '@gconnect/db';
 import { encrypt, decrypt } from './naver-api';
 
 export interface WebhookPayload {
@@ -23,11 +23,11 @@ export interface WebhookPayload {
 }
 
 /**
- * 웹훅 트리거
+ * ?뱁썒 ?몃━嫄?
  */
 export async function triggerWebhooks(userId: string, payload: WebhookPayload) {
   try {
-    // 사용자의 활성화된 웹훅 조회
+    // ?ъ슜?먯쓽 ?쒖꽦?붾맂 ?뱁썒 議고쉶
     const webhooks = await db.webhook.findMany({
       where: {
         userId,
@@ -39,23 +39,23 @@ export async function triggerWebhooks(userId: string, payload: WebhookPayload) {
     });
 
     if (webhooks.length === 0) {
-      console.log('웹훅 없음 - 스킵');
+      console.log('?뱁썒 ?놁쓬 - ?ㅽ궢');
       return;
     }
 
-    console.log(`📡 웹훅 트리거: ${webhooks.length}개`);
+    console.log(`?뱻 ?뱁썒 ?몃━嫄? ${webhooks.length}媛?);
 
-    // 병렬로 모든 웹훅 실행
+    // 蹂묐젹濡?紐⑤뱺 ?뱁썒 ?ㅽ뻾
     await Promise.all(
       webhooks.map((webhook) => executeWebhook(webhook, payload))
     );
   } catch (error) {
-    console.error('웹훅 트리거 오류:', error);
+    console.error('?뱁썒 ?몃━嫄??ㅻ쪟:', error);
   }
 }
 
 /**
- * 웹훅 실행
+ * ?뱁썒 ?ㅽ뻾
  */
 async function executeWebhook(webhook: any, payload: WebhookPayload) {
   const startTime = Date.now();
@@ -65,7 +65,7 @@ async function executeWebhook(webhook: any, payload: WebhookPayload) {
   let errorMessage: string | null = null;
 
   try {
-    // 웹훅 타입별 처리
+    // ?뱁썒 ??낅퀎 泥섎━
     let requestBody: string;
     let requestHeaders: Record<string, string> = {
       'Content-Type': 'application/json',
@@ -80,7 +80,7 @@ async function executeWebhook(webhook: any, payload: WebhookPayload) {
       requestBody = JSON.stringify(payload);
     }
 
-    // 인증 헤더 추가
+    // ?몄쬆 ?ㅻ뜑 異붽?
     if (webhook.authType && webhook.authValue) {
       const authValue = decrypt(webhook.authValue);
       if (webhook.authType === 'BEARER') {
@@ -90,17 +90,17 @@ async function executeWebhook(webhook: any, payload: WebhookPayload) {
       }
     }
 
-    // 커스텀 헤더 추가
+    // 而ㅼ뒪? ?ㅻ뜑 異붽?
     if (webhook.customHeaders) {
       try {
         const customHeaders = JSON.parse(webhook.customHeaders);
         requestHeaders = { ...requestHeaders, ...customHeaders };
       } catch (e) {
-        console.error('커스텀 헤더 파싱 오류:', e);
+        console.error('而ㅼ뒪? ?ㅻ뜑 ?뚯떛 ?ㅻ쪟:', e);
       }
     }
 
-    // HTTP 요청 실행
+    // HTTP ?붿껌 ?ㅽ뻾
     const response = await fetch(webhook.url, {
       method: 'POST',
       headers: requestHeaders,
@@ -115,16 +115,16 @@ async function executeWebhook(webhook: any, payload: WebhookPayload) {
       errorMessage = `HTTP ${response.status}: ${responseBody}`;
     }
 
-    console.log(`✅ 웹훅 전송 성공: ${webhook.name}`);
+    console.log(`???뱁썒 ?꾩넚 ?깃났: ${webhook.name}`);
   } catch (error: any) {
     status = 'FAILED';
     errorMessage = error.message;
-    console.error(`❌ 웹훅 전송 실패: ${webhook.name}`, error);
+    console.error(`???뱁썒 ?꾩넚 ?ㅽ뙣: ${webhook.name}`, error);
   }
 
   const responseTime = Date.now() - startTime;
 
-  // 웹훅 로그 저장
+  // ?뱁썒 濡쒓렇 ???
   await db.webhookLog.create({
     data: {
       webhookId: webhook.id,
@@ -140,7 +140,7 @@ async function executeWebhook(webhook: any, payload: WebhookPayload) {
     },
   });
 
-  // 웹훅 통계 업데이트
+  // ?뱁썒 ?듦퀎 ?낅뜲?댄듃
   await db.webhook.update({
     where: { id: webhook.id },
     data: {
@@ -154,51 +154,51 @@ async function executeWebhook(webhook: any, payload: WebhookPayload) {
 }
 
 /**
- * Slack 메시지 포맷
+ * Slack 硫붿떆吏 ?щ㎎
  */
 function buildSlackPayload(payload: WebhookPayload) {
   const { event, data } = payload;
   const isSuccess = event === 'sync.success';
 
   const color = isSuccess ? 'good' : 'danger';
-  const emoji = isSuccess ? '✅' : '❌';
-  const title = isSuccess ? '자동 동기화 완료' : '자동 동기화 실패';
+  const emoji = isSuccess ? '?? : '??;
+  const title = isSuccess ? '?먮룞 ?숆린???꾨즺' : '?먮룞 ?숆린???ㅽ뙣';
 
   const fields = [
     {
-      title: '상점',
-      value: data.shopName || '알 수 없음',
+      title: '?곸젏',
+      value: data.shopName || '?????놁쓬',
       short: true,
     },
     {
-      title: '상태',
-      value: isSuccess ? '성공' : '실패',
+      title: '?곹깭',
+      value: isSuccess ? '?깃났' : '?ㅽ뙣',
       short: true,
     },
     {
-      title: '총 상품',
-      value: `${data.itemsTotal}개`,
+      title: '珥??곹뭹',
+      value: `${data.itemsTotal}媛?,
       short: true,
     },
     {
-      title: '동기화 성공',
-      value: `${data.itemsSynced}개`,
+      title: '?숆린???깃났',
+      value: `${data.itemsSynced}媛?,
       short: true,
     },
   ];
 
   if (data.itemsFailed > 0) {
     fields.push({
-      title: '동기화 실패',
-      value: `${data.itemsFailed}개`,
+      title: '?숆린???ㅽ뙣',
+      value: `${data.itemsFailed}媛?,
       short: true,
     });
   }
 
   if (data.duration) {
     fields.push({
-      title: '소요 시간',
-      value: `${(data.duration / 1000).toFixed(2)}초`,
+      title: '?뚯슂 ?쒓컙',
+      value: `${(data.duration / 1000).toFixed(2)}珥?,
       short: true,
     });
   }
@@ -207,12 +207,12 @@ function buildSlackPayload(payload: WebhookPayload) {
     color,
     title: `${emoji} ${title}`,
     fields,
-    footer: 'GConnect 자동 동기화',
+    footer: 'GConnect ?먮룞 ?숆린??,
     ts: Math.floor(Date.now() / 1000),
   };
 
   if (!isSuccess && data.error) {
-    attachment.text = `오류: ${data.error}`;
+    attachment.text = `?ㅻ쪟: ${data.error}`;
   }
 
   return {
@@ -222,51 +222,51 @@ function buildSlackPayload(payload: WebhookPayload) {
 }
 
 /**
- * Discord 메시지 포맷
+ * Discord 硫붿떆吏 ?щ㎎
  */
 function buildDiscordPayload(payload: WebhookPayload) {
   const { event, data } = payload;
   const isSuccess = event === 'sync.success';
 
   const color = isSuccess ? 0x22f089 : 0xff4d4f;
-  const emoji = isSuccess ? '✅' : '❌';
-  const title = isSuccess ? '자동 동기화 완료' : '자동 동기화 실패';
+  const emoji = isSuccess ? '?? : '??;
+  const title = isSuccess ? '?먮룞 ?숆린???꾨즺' : '?먮룞 ?숆린???ㅽ뙣';
 
   const fields = [
     {
-      name: '상점',
-      value: data.shopName || '알 수 없음',
+      name: '?곸젏',
+      value: data.shopName || '?????놁쓬',
       inline: true,
     },
     {
-      name: '상태',
-      value: isSuccess ? '성공' : '실패',
+      name: '?곹깭',
+      value: isSuccess ? '?깃났' : '?ㅽ뙣',
       inline: true,
     },
     {
-      name: '총 상품',
-      value: `${data.itemsTotal}개`,
+      name: '珥??곹뭹',
+      value: `${data.itemsTotal}媛?,
       inline: true,
     },
     {
-      name: '동기화 성공',
-      value: `${data.itemsSynced}개`,
+      name: '?숆린???깃났',
+      value: `${data.itemsSynced}媛?,
       inline: true,
     },
   ];
 
   if (data.itemsFailed > 0) {
     fields.push({
-      name: '동기화 실패',
-      value: `${data.itemsFailed}개`,
+      name: '?숆린???ㅽ뙣',
+      value: `${data.itemsFailed}媛?,
       inline: true,
     });
   }
 
   if (data.duration) {
     fields.push({
-      name: '소요 시간',
-      value: `${(data.duration / 1000).toFixed(2)}초`,
+      name: '?뚯슂 ?쒓컙',
+      value: `${(data.duration / 1000).toFixed(2)}珥?,
       inline: true,
     });
   }
@@ -276,13 +276,13 @@ function buildDiscordPayload(payload: WebhookPayload) {
     color,
     fields,
     footer: {
-      text: 'GConnect 자동 동기화',
+      text: 'GConnect ?먮룞 ?숆린??,
     },
     timestamp: new Date().toISOString(),
   };
 
   if (!isSuccess && data.error) {
-    embed.description = `**오류:** ${data.error}`;
+    embed.description = `**?ㅻ쪟:** ${data.error}`;
   }
 
   return {
@@ -292,7 +292,7 @@ function buildDiscordPayload(payload: WebhookPayload) {
 }
 
 /**
- * 웹훅 테스트
+ * ?뱁썒 ?뚯뒪??
  */
 export async function testWebhook(webhookId: string) {
   const webhook = await db.webhook.findUnique({
@@ -307,16 +307,16 @@ export async function testWebhook(webhookId: string) {
   });
 
   if (!webhook) {
-    throw new Error('웹훅을 찾을 수 없습니다.');
+    throw new Error('?뱁썒??李얠쓣 ???놁뒿?덈떎.');
   }
 
-  // 테스트 페이로드
+  // ?뚯뒪???섏씠濡쒕뱶
   const testPayload: WebhookPayload = {
     event: 'sync.success',
     timestamp: new Date().toISOString(),
     data: {
       userId: webhook.userId,
-      shopName: webhook.user.shopName || '테스트 상점',
+      shopName: webhook.user.shopName || '?뚯뒪???곸젏',
       status: 'SUCCESS',
       itemsTotal: 10,
       itemsSynced: 10,
@@ -327,7 +327,7 @@ export async function testWebhook(webhookId: string) {
 
   await executeWebhook(webhook, testPayload);
 
-  // 최근 로그 조회
+  // 理쒓렐 濡쒓렇 議고쉶
   const log = await db.webhookLog.findFirst({
     where: { webhookId },
     orderBy: { createdAt: 'desc' },

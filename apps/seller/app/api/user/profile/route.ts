@@ -1,21 +1,21 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { db } from '@gconnect/db';
+import { prisma } from '@gconnect/db';
 
-// 프로필 조회
+// ?�로??조회
 export async function GET() {
   try {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
       return NextResponse.json(
-        { error: '인증이 필요합니다.' },
+        { error: '?�증???�요?�니??' },
         { status: 401 }
       );
     }
 
-    const user = await db.user.findUnique({
+    const user = await prisma.user.findUnique({
       where: { id: session.user.id },
       select: {
         id: true,
@@ -39,35 +39,35 @@ export async function GET() {
 
     if (!user) {
       return NextResponse.json(
-        { error: '사용자를 찾을 수 없습니다.' },
+        { error: '?�용?��? 찾을 ???�습?�다.' },
         { status: 404 }
       );
     }
 
-    // naverClientSecret 마스킹 처리
+    // naverClientSecret 마스??처리
     const maskedUser = {
       ...user,
-      naverClientSecret: user.naverClientSecret ? '••••••••••••••••' : null,
+      naverClientSecret: user.naverClientSecret ? '?�••••••••••••••�? : null,
     };
 
     return NextResponse.json(maskedUser);
   } catch (error) {
     console.error('Get profile error:', error);
     return NextResponse.json(
-      { error: '프로필 조회 중 오류가 발생했습니다.' },
+      { error: '?�로??조회 �??�류가 발생?�습?�다.' },
       { status: 500 }
     );
   }
 }
 
-// 프로필 수정
+// ?�로???�정
 export async function PUT(req: Request) {
   try {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
       return NextResponse.json(
-        { error: '인증이 필요합니다.' },
+        { error: '?�증???�요?�니??' },
         { status: 401 }
       );
     }
@@ -75,16 +75,16 @@ export async function PUT(req: Request) {
     const body = await req.json();
     const { name } = body;
 
-    // 필수 필드 검증
+    // ?�수 ?�드 검�?
     if (!name || name.trim().length < 2) {
       return NextResponse.json(
-        { error: '이름은 최소 2자 이상이어야 합니다.' },
+        { error: '?�름?� 최소 2???�상?�어???�니??' },
         { status: 400 }
       );
     }
 
-    // 프로필 업데이트
-    const updatedUser = await db.user.update({
+    // ?�로???�데?�트
+    const updatedUser = await prisma.user.update({
       where: { id: session.user.id },
       data: {
         name: name.trim(),
@@ -104,7 +104,7 @@ export async function PUT(req: Request) {
   } catch (error) {
     console.error('Update profile error:', error);
     return NextResponse.json(
-      { error: '프로필 수정 중 오류가 발생했습니다.' },
+      { error: '?�로???�정 �??�류가 발생?�습?�다.' },
       { status: 500 }
     );
   }

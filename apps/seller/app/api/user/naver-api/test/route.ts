@@ -2,14 +2,14 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 
-// 네이버 커머스 API 연결 테스트
+// ?�이�?커머??API ?�결 ?�스??
 export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
       return NextResponse.json(
-        { error: '인증이 필요합니다.' },
+        { error: '?�증???�요?�니??' },
         { status: 401 }
       );
     }
@@ -19,18 +19,18 @@ export async function POST(req: Request) {
 
     if (!clientId || !clientSecret) {
       return NextResponse.json(
-        { error: 'Client ID와 Client Secret을 입력해주세요.' },
+        { error: 'Client ID?� Client Secret???�력?�주?�요.' },
         { status: 400 }
       );
     }
 
-    // 네이버 커머스 API 테스트 호출
-    // 주의: 실제 네이버 커머스 API 엔드포인트는 네이버 문서를 참고하세요
-    // 여기서는 간단한 인증 테스트만 수행합니다
+    // ?�이�?커머??API ?�스???�출
+    // 주의: ?�제 ?�이�?커머??API ?�드?�인?�는 ?�이�?문서�?참고?�세??
+    // ?�기?�는 간단???�증 ?�스?�만 ?�행?�니??
     
     try {
-      // 네이버 커머스 API는 OAuth 2.0을 사용합니다
-      // 1. Access Token 발급 테스트
+      // ?�이�?커머??API??OAuth 2.0???�용?�니??
+      // 1. Access Token 발급 ?�스??
       const tokenResponse = await fetch('https://api.commerce.naver.com/external/v1/oauth2/token', {
         method: 'POST',
         headers: {
@@ -47,22 +47,22 @@ export async function POST(req: Request) {
       if (!tokenResponse.ok) {
         const errorData = await tokenResponse.json().catch(() => ({}));
         
-        // 일반적인 오류 처리
+        // ?�반?�인 ?�류 처리
         if (tokenResponse.status === 401) {
           return NextResponse.json(
-            { error: 'Client ID 또는 Client Secret이 올바르지 않습니다.' },
+            { error: 'Client ID ?�는 Client Secret???�바르�? ?�습?�다.' },
             { status: 400 }
           );
         }
         
         if (tokenResponse.status === 403) {
           return NextResponse.json(
-            { error: 'API 사용 권한이 없습니다. 네이버 커머스 API 신청이 승인되었는지 확인해주세요.' },
+            { error: 'API ?�용 권한???�습?�다. ?�이�?커머??API ?�청???�인?�었?��? ?�인?�주?�요.' },
             { status: 400 }
           );
         }
 
-        throw new Error(errorData.message || 'API 호출에 실패했습니다.');
+        throw new Error(errorData.message || 'API ?�출???�패?�습?�다.');
       }
 
       const tokenData = await tokenResponse.json();
@@ -70,32 +70,32 @@ export async function POST(req: Request) {
       if (tokenData.access_token) {
         return NextResponse.json({
           ok: true,
-          message: 'API 연결 테스트에 성공했습니다!',
+          message: 'API ?�결 ?�스?�에 ?�공?�습?�다!',
         });
       }
 
-      throw new Error('Access Token을 받지 못했습니다.');
+      throw new Error('Access Token??받�? 못했?�니??');
       
     } catch (apiError: any) {
       console.error('Naver API test error:', apiError);
       
-      // 네트워크 오류 등
+      // ?�트?�크 ?�류 ??
       if (apiError.message.includes('fetch')) {
         return NextResponse.json(
-          { error: '네이버 API 서버에 연결할 수 없습니다. 네트워크 연결을 확인해주세요.' },
+          { error: '?�이�?API ?�버???�결?????�습?�다. ?�트?�크 ?�결???�인?�주?�요.' },
           { status: 500 }
         );
       }
 
       return NextResponse.json(
-        { error: apiError.message || 'API 테스트 중 오류가 발생했습니다.' },
+        { error: apiError.message || 'API ?�스??�??�류가 발생?�습?�다.' },
         { status: 400 }
       );
     }
   } catch (error: any) {
     console.error('API test error:', error);
     return NextResponse.json(
-      { error: 'API 연결 테스트 중 오류가 발생했습니다.' },
+      { error: 'API ?�결 ?�스??�??�류가 발생?�습?�다.' },
       { status: 500 }
     );
   }

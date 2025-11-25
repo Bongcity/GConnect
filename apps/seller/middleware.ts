@@ -1,9 +1,9 @@
-export { default } from 'next-auth/middleware';
+﻿export { default } from 'next-auth/middleware';
 
 export const config = {
   matcher: [
     '/dashboard/:path*',
-    // 다른 보호된 경로를 여기에 추가
+    // ?ㅻⅨ 蹂댄샇??寃쎈줈瑜??ш린??異붽?
   ],
 };
 

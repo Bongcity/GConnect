@@ -1,17 +1,17 @@
-/**
+﻿/**
  * Next.js Instrumentation
  * 
- * 서버 시작 시 실행되는 초기화 코드
+ * ?쒕쾭 ?쒖옉 ???ㅽ뻾?섎뒗 珥덇린??肄붾뱶
  */
 
 export async function register() {
   if (process.env.NEXT_RUNTIME === 'nodejs') {
     const { initScheduler } = await import('./lib/scheduler');
     
-    // 스케줄러 초기화
+    // ?ㅼ?以꾨윭 珥덇린??
     await initScheduler();
     
-    console.log('✅ Instrumentation 완료');
+    console.log('??Instrumentation ?꾨즺');
   }
 }
 

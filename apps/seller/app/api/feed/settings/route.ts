@@ -1,26 +1,26 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { db } from '@gconnect/db';
+import { prisma } from '@gconnect/db';
 
-// 피드 설정 조회
+// ?�드 ?�정 조회
 export async function GET() {
   try {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
       return NextResponse.json(
-        { error: '인증이 필요합니다.' },
+        { error: '?�증???�요?�니??' },
         { status: 401 }
       );
     }
 
-    const feedSettings = await db.feedSettings.findUnique({
+    const feedSettings = await prisma.feedSettings.findUnique({
       where: { userId: session.user.id },
     });
 
     if (!feedSettings) {
-      // 설정이 없으면 기본값 반환
+      // ?�정???�으�?기본�?반환
       return NextResponse.json({
         ok: true,
         settings: null,
@@ -28,7 +28,7 @@ export async function GET() {
       });
     }
 
-    // 피드 URL 생성
+    // ?�드 URL ?�성
     const baseUrl = process.env.NEXT_PUBLIC_SELLER_URL || 'http://localhost:3003';
     const feedUrl = `${baseUrl}/api/feed/${session.user.id}`;
 
@@ -40,20 +40,20 @@ export async function GET() {
   } catch (error) {
     console.error('Get feed settings error:', error);
     return NextResponse.json(
-      { error: '피드 설정 조회 중 오류가 발생했습니다.' },
+      { error: '?�드 ?�정 조회 �??�류가 발생?�습?�다.' },
       { status: 500 }
     );
   }
 }
 
-// 피드 설정 저장/수정
+// ?�드 ?�정 ?�???�정
 export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
       return NextResponse.json(
-        { error: '인증이 필요합니다.' },
+        { error: '?�증???�요?�니??' },
         { status: 401 }
       );
     }
@@ -70,24 +70,24 @@ export async function POST(req: Request) {
       updateFrequency,
     } = body;
 
-    // 필수 필드 검증
+    // ?�수 ?�드 검�?
     if (!feedTitle) {
       return NextResponse.json(
-        { error: '피드 제목은 필수입니다.' },
+        { error: '?�드 ?�목?� ?�수?�니??' },
         { status: 400 }
       );
     }
 
-    // 기존 설정 확인
-    const existingSettings = await db.feedSettings.findUnique({
+    // 기존 ?�정 ?�인
+    const existingSettings = await prisma.feedSettings.findUnique({
       where: { userId: session.user.id },
     });
 
     let feedSettings;
 
     if (existingSettings) {
-      // 수정
-      feedSettings = await db.feedSettings.update({
+      // ?�정
+      feedSettings = await prisma.feedSettings.update({
         where: { id: existingSettings.id },
         data: {
           feedTitle,
@@ -101,8 +101,8 @@ export async function POST(req: Request) {
         },
       });
     } else {
-      // 생성
-      feedSettings = await db.feedSettings.create({
+      // ?�성
+      feedSettings = await prisma.feedSettings.create({
         data: {
           userId: session.user.id,
           feedTitle,
@@ -117,7 +117,7 @@ export async function POST(req: Request) {
       });
     }
 
-    // 피드 URL 생성
+    // ?�드 URL ?�성
     const baseUrl = process.env.NEXT_PUBLIC_SELLER_URL || 'http://localhost:3003';
     const feedUrl = `${baseUrl}/api/feed/${session.user.id}`;
 
@@ -129,7 +129,7 @@ export async function POST(req: Request) {
   } catch (error) {
     console.error('Save feed settings error:', error);
     return NextResponse.json(
-      { error: '피드 설정 저장 중 오류가 발생했습니다.' },
+      { error: '?�드 ?�정 ?�??�??�류가 발생?�습?�다.' },
       { status: 500 }
     );
   }

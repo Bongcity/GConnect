@@ -1,32 +1,32 @@
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
-import { db } from '@gconnect/db';
+import { prisma } from '@gconnect/db';
 import { registerSchema } from '@gconnect/lib/validations';
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
 
-    // 유효성 검사
+    // ?�효??검??
     const validated = registerSchema.parse(body);
 
-    // 이메일 중복 확인
-    const existingUser = await db.user.findUnique({
+    // ?�메??중복 ?�인
+    const existingUser = await prisma.user.findUnique({
       where: { email: validated.email },
     });
 
     if (existingUser) {
       return NextResponse.json(
-        { error: '이미 사용 중인 이메일입니다.' },
+        { error: '?��? ?�용 중인 ?�메?�입?�다.' },
         { status: 400 }
       );
     }
 
-    // 비밀번호 해싱
+    // 비�?번호 ?�싱
     const hashedPassword = await bcrypt.hash(validated.password, 12);
 
-    // 사용자 생성
-    const user = await db.user.create({
+    // ?�용???�성
+    const user = await prisma.user.create({
       data: {
         email: validated.email,
         password: hashedPassword,
@@ -36,7 +36,7 @@ export async function POST(req: Request) {
       },
     });
 
-    // 비밀번호 제외하고 반환
+    // 비�?번호 ?�외?�고 반환
     const { password: _, ...userWithoutPassword } = user;
 
     return NextResponse.json(
@@ -49,7 +49,7 @@ export async function POST(req: Request) {
   } catch (error: any) {
     console.error('Register error:', error);
 
-    // Zod validation 에러
+    // Zod validation ?�러
     if (error.errors) {
       return NextResponse.json(
         { error: error.errors[0].message },
@@ -58,7 +58,7 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json(
-      { error: '회원가입 중 오류가 발생했습니다.' },
+      { error: '?�원가??�??�류가 발생?�습?�다.' },
       { status: 500 }
     );
   }

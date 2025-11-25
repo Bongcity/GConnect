@@ -1,22 +1,22 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { db } from '@gconnect/db';
+import { prisma } from '@gconnect/db';
 import { encrypt } from '@/lib/naver-api';
 
-// 웹훅 목록 조회
+// ?�훅 목록 조회
 export async function GET() {
   try {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
       return NextResponse.json(
-        { error: '인증이 필요합니다.' },
+        { error: '?�증???�요?�니??' },
         { status: 401 }
       );
     }
 
-    const webhooks = await db.webhook.findMany({
+    const webhooks = await prisma.webhook.findMany({
       where: {
         userId: session.user.id,
       },
@@ -32,20 +32,20 @@ export async function GET() {
   } catch (error) {
     console.error('Get webhooks error:', error);
     return NextResponse.json(
-      { error: '웹훅 조회 중 오류가 발생했습니다.' },
+      { error: '?�훅 조회 �??�류가 발생?�습?�다.' },
       { status: 500 }
     );
   }
 }
 
-// 웹훅 생성
+// ?�훅 ?�성
 export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
       return NextResponse.json(
-        { error: '인증이 필요합니다.' },
+        { error: '?�증???�요?�니??' },
         { status: 401 }
       );
     }
@@ -63,32 +63,32 @@ export async function POST(req: Request) {
       customHeaders,
     } = body;
 
-    // 필수 필드 검증
+    // ?�수 ?�드 검�?
     if (!name || !url || !type) {
       return NextResponse.json(
-        { error: '필수 필드가 누락되었습니다.' },
+        { error: '?�수 ?�드가 ?�락?�었?�니??' },
         { status: 400 }
       );
     }
 
-    // URL 검증
+    // URL 검�?
     try {
       new URL(url);
     } catch (e) {
       return NextResponse.json(
-        { error: '올바른 URL 형식이 아닙니다.' },
+        { error: '?�바�?URL ?�식???�닙?�다.' },
         { status: 400 }
       );
     }
 
-    // authValue 암호화
+    // authValue ?�호??
     let encryptedAuthValue = null;
     if (authType && authValue) {
       encryptedAuthValue = encrypt(authValue);
     }
 
-    // 웹훅 생성
-    const webhook = await db.webhook.create({
+    // ?�훅 ?�성
+    const webhook = await prisma.webhook.create({
       data: {
         userId: session.user.id,
         name,
@@ -110,7 +110,7 @@ export async function POST(req: Request) {
   } catch (error) {
     console.error('Create webhook error:', error);
     return NextResponse.json(
-      { error: '웹훅 생성 중 오류가 발생했습니다.' },
+      { error: '?�훅 ?�성 �??�류가 발생?�습?�다.' },
       { status: 500 }
     );
   }

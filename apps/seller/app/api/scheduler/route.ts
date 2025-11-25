@@ -1,22 +1,22 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { db } from '@gconnect/db';
+import { prisma } from '@gconnect/db';
 import { registerCronJob, stopCronJob } from '@/lib/scheduler';
 
-// 스케줄 설정 조회
+// ?��?�??�정 조회
 export async function GET() {
   try {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
       return NextResponse.json(
-        { error: '인증이 필요합니다.' },
+        { error: '?�증???�요?�니??' },
         { status: 401 }
       );
     }
 
-    const schedule = await db.syncSchedule.findUnique({
+    const schedule = await prisma.syncSchedule.findUnique({
       where: { userId: session.user.id },
     });
 
@@ -27,20 +27,20 @@ export async function GET() {
   } catch (error) {
     console.error('Get schedule error:', error);
     return NextResponse.json(
-      { error: '스케줄 조회 중 오류가 발생했습니다.' },
+      { error: '?��?�?조회 �??�류가 발생?�습?�다.' },
       { status: 500 }
     );
   }
 }
 
-// 스케줄 설정 저장/수정
+// ?��?�??�정 ?�???�정
 export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
       return NextResponse.json(
-        { error: '인증이 필요합니다.' },
+        { error: '?�증???�요?�니??' },
         { status: 401 }
       );
     }
@@ -57,16 +57,16 @@ export async function POST(req: Request) {
       notifyEmail,
     } = body;
 
-    // 기존 스케줄 확인
-    const existingSchedule = await db.syncSchedule.findUnique({
+    // 기존 ?��?�??�인
+    const existingSchedule = await prisma.syncSchedule.findUnique({
       where: { userId: session.user.id },
     });
 
     let schedule;
 
     if (existingSchedule) {
-      // 수정
-      schedule = await db.syncSchedule.update({
+      // ?�정
+      schedule = await prisma.syncSchedule.update({
         where: { id: existingSchedule.id },
         data: {
           isEnabled: isEnabled !== undefined ? isEnabled : existingSchedule.isEnabled,
@@ -89,8 +89,8 @@ export async function POST(req: Request) {
         },
       });
     } else {
-      // 생성
-      schedule = await db.syncSchedule.create({
+      // ?�성
+      schedule = await prisma.syncSchedule.create({
         data: {
           userId: session.user.id,
           isEnabled: isEnabled || false,
@@ -114,7 +114,7 @@ export async function POST(req: Request) {
       });
     }
 
-    // 크론 작업 재등록
+    // ?�론 ?�업 ?�등�?
     if (schedule.isEnabled) {
       await registerCronJob(schedule);
     } else {
@@ -128,29 +128,29 @@ export async function POST(req: Request) {
   } catch (error) {
     console.error('Save schedule error:', error);
     return NextResponse.json(
-      { error: '스케줄 저장 중 오류가 발생했습니다.' },
+      { error: '?��?�??�??�??�류가 발생?�습?�다.' },
       { status: 500 }
     );
   }
 }
 
-// 스케줄 삭제
+// ?��?�???��
 export async function DELETE() {
   try {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
       return NextResponse.json(
-        { error: '인증이 필요합니다.' },
+        { error: '?�증???�요?�니??' },
         { status: 401 }
       );
     }
 
-    // 크론 작업 중지
+    // ?�론 ?�업 중�?
     stopCronJob(session.user.id);
 
-    // 스케줄 삭제
-    await db.syncSchedule.delete({
+    // ?��?�???��
+    await prisma.syncSchedule.delete({
       where: { userId: session.user.id },
     });
 
@@ -160,7 +160,7 @@ export async function DELETE() {
   } catch (error) {
     console.error('Delete schedule error:', error);
     return NextResponse.json(
-      { error: '스케줄 삭제 중 오류가 발생했습니다.' },
+      { error: '?��?�???�� �??�류가 발생?�습?�다.' },
       { status: 500 }
     );
   }
