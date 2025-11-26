@@ -10,8 +10,8 @@ export default function ProductCard({ product }: ProductCardProps) {
     return new Intl.NumberFormat('ko-KR').format(price);
   };
 
-  const discountRate = product.discountPrice && product.price
-    ? Math.round(((product.price - product.discountPrice) / product.price) * 100)
+  const discountRate = product.salePrice && product.price
+    ? Math.round(((product.price - product.salePrice) / product.price) * 100)
     : 0;
 
   return (
@@ -57,10 +57,10 @@ export default function ProductCard({ product }: ProductCardProps) {
 
         {/* 가격 */}
         <div className="flex items-center gap-2">
-          {product.discountPrice ? (
+          {product.salePrice ? (
             <>
               <span className="text-lg font-bold text-brand-neon">
-                {formatPrice(product.discountPrice)}원
+                {formatPrice(product.salePrice)}원
               </span>
               <span className="text-sm text-white/40 line-through">
                 {formatPrice(product.price)}원
