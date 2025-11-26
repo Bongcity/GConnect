@@ -26,6 +26,39 @@ async function getProduct(id: string) {
   }
 }
 
+async function getRelatedProducts(productId: string, category1?: string, category2?: string) {
+  try {
+    // 같은 카테고리의 다른 상품들 가져오기
+    const relatedProducts = await prisma.product.findMany({
+      where: {
+        id: { not: productId },
+        isActive: true,
+        OR: [
+          { category1: category1 || '' },
+          { category2: category2 || '' },
+        ],
+      },
+      include: {
+        user: {
+          select: {
+            shopName: true,
+            naverShopUrl: true,
+          },
+        },
+      },
+      take: 4,
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    return relatedProducts;
+  } catch (error) {
+    console.error('Failed to fetch related products:', error);
+    return [];
+  }
+}
+
 export async function generateMetadata({
   params,
 }: {
@@ -70,11 +103,18 @@ export default async function ProductDetailPage({
     notFound();
   }
 
+  // 관련 상품 가져오기
+  const relatedProducts = await getRelatedProducts(
+    product.id,
+    product.category1 || undefined,
+    product.category2 || undefined
+  );
+
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
       <main className="flex-1 section-padding">
-        <ProductDetail product={product} />
+        <ProductDetail product={product} relatedProducts={relatedProducts} />
       </main>
       <Footer />
     </div>

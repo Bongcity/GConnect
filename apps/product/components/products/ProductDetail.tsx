@@ -2,62 +2,107 @@
 
 import Image from 'next/image';
 import { useState } from 'react';
-import { ShoppingBagIcon, ArrowTopRightOnSquareIcon } from '@heroicons/react/24/outline';
+import { ShoppingBagIcon, ArrowTopRightOnSquareIcon, ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/outline';
+import ImageGalleryModal from './ImageGalleryModal';
+import ProductCard from './ProductCard';
+import { motion } from 'framer-motion';
 
 interface ProductDetailProps {
   product: any;
+  relatedProducts?: any[];
 }
 
-export default function ProductDetail({ product }: ProductDetailProps) {
+export default function ProductDetail({ product, relatedProducts = [] }: ProductDetailProps) {
   const [selectedImage, setSelectedImage] = useState(0);
+  const [isGalleryOpen, setIsGalleryOpen] = useState(false);
+  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('ko-KR').format(price);
   };
 
-  const discountRate = product.discountPrice && product.price
-    ? Math.round(((product.price - product.discountPrice) / product.price) * 100)
+  const discountRate = product.salePrice && product.price
+    ? Math.round(((product.price - product.salePrice) / product.price) * 100)
     : 0;
 
-  const finalPrice = product.discountPrice || product.price;
+  const finalPrice = product.salePrice || product.price;
 
   // 네이버 상품 URL 생성
   const naverProductUrl = product.productUrl || product.user?.naverShopUrl || '#';
 
-  // 이미지 배열 (실제로는 여러 이미지가 있을 수 있음)
-  const images = product.imageUrl ? [product.imageUrl] : [];
+  // 이미지 배열 (imageUrl + thumbnailUrl 사용, 실제로는 추가 이미지 배열이 있을 수 있음)
+  const images: string[] = [];
+  if (product.imageUrl) images.push(product.imageUrl);
+  if (product.thumbnailUrl && product.thumbnailUrl !== product.imageUrl) {
+    images.push(product.thumbnailUrl);
+  }
+  
+  // 설명 길이 체크 (200자 이상이면 접기 기능 표시)
+  const shouldShowReadMore = product.description && product.description.length > 200;
+  const displayDescription = shouldShowReadMore && !isDescriptionExpanded
+    ? product.description.substring(0, 200) + '...'
+    : product.description;
 
   return (
-    <div className="container-custom">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-        {/* 왼쪽: 이미지 */}
-        <div>
-          {/* 메인 이미지 */}
-          <div className="glass-card overflow-hidden mb-4">
-            <div className="relative aspect-square bg-white/5">
-              {images.length > 0 ? (
-                <Image
-                  src={images[selectedImage]}
-                  alt={product.name}
-                  fill
-                  className="object-cover"
-                  priority
-                  sizes="(max-width: 1024px) 100vw, 50vw"
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center">
-                  <span className="text-white/20 text-9xl">📦</span>
-                </div>
-              )}
+    <>
+      <div className="container-custom">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+          {/* 왼쪽: 이미지 */}
+          <div>
+            {/* 메인 이미지 */}
+            <div 
+              className="glass-card overflow-hidden mb-4 cursor-pointer group"
+              onClick={() => images.length > 0 && setIsGalleryOpen(true)}
+            >
+              <div className="relative aspect-square bg-white/5">
+                {/* 카테고리 배지 (이미지 위) */}
+                {product.category1 && (
+                  <div className="absolute top-4 left-4 z-10">
+                    <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-black/60 backdrop-blur-sm border border-white/10">
+                      <span className="text-white text-sm font-semibold">
+                        {product.category1}
+                      </span>
+                      {product.category2 && (
+                        <>
+                          <span className="text-white/40">›</span>
+                          <span className="text-white/80 text-sm">{product.category2}</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
 
-              {/* 할인 배지 */}
-              {discountRate > 0 && (
-                <div className="absolute top-6 left-6 px-4 py-2 bg-red-500 text-white text-lg font-bold rounded-full shadow-lg">
-                  {discountRate}% OFF
-                </div>
-              )}
+                {images.length > 0 ? (
+                  <>
+                    <Image
+                      src={images[selectedImage]}
+                      alt={product.name}
+                      fill
+                      className="object-cover group-hover:scale-105 transition-transform duration-300"
+                      priority
+                      sizes="(max-width: 1024px) 100vw, 50vw"
+                    />
+                    {/* 확대 아이콘 힌트 */}
+                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/20">
+                      <div className="px-4 py-2 rounded-full bg-white/90 text-gray-900 text-sm font-semibold">
+                        🔍 클릭하여 크게 보기
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <span className="text-white/20 text-9xl">📦</span>
+                  </div>
+                )}
+
+                {/* 할인 배지 */}
+                {discountRate > 0 && (
+                  <div className="absolute top-4 right-4 px-4 py-2 bg-red-500 text-white text-lg font-bold rounded-full shadow-lg z-10">
+                    {discountRate}% OFF
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
 
           {/* 썸네일 (여러 이미지가 있을 경우) */}
           {images.length > 1 && (
@@ -109,11 +154,11 @@ export default function ProductDetail({ product }: ProductDetailProps) {
 
           {/* 가격 */}
           <div className="mb-8 p-6 rounded-xl bg-gradient-to-r from-brand-neon/10 to-brand-cyan/10 border border-brand-neon/20">
-            {product.discountPrice ? (
+            {product.salePrice ? (
               <>
                 <div className="flex items-baseline gap-3 mb-2">
                   <span className="text-4xl font-black text-brand-neon">
-                    {formatPrice(product.discountPrice)}원
+                    {formatPrice(product.salePrice)}원
                   </span>
                   <span className="text-2xl text-white/40 line-through">
                     {formatPrice(product.price)}원
@@ -130,37 +175,39 @@ export default function ProductDetail({ product }: ProductDetailProps) {
             )}
           </div>
 
-          {/* 카테고리 */}
-          {product.category1 && (
-            <div className="mb-6">
-              <h3 className="text-sm text-white/40 mb-2">카테고리</h3>
-              <div className="flex items-center gap-2 text-white/70">
-                <span>{product.category1}</span>
-                {product.category2 && (
-                  <>
-                    <span>›</span>
-                    <span>{product.category2}</span>
-                  </>
-                )}
-                {product.category3 && (
-                  <>
-                    <span>›</span>
-                    <span>{product.category3}</span>
-                  </>
-                )}
-              </div>
-            </div>
-          )}
-
           {/* 설명 */}
           {product.description && (
             <div className="mb-8">
               <h3 className="text-lg font-semibold text-white mb-3">상품 설명</h3>
-              <div className="glass-card p-6">
+              <motion.div 
+                className="glass-card p-6"
+                initial={false}
+                animate={{ height: isDescriptionExpanded ? 'auto' : 'auto' }}
+              >
                 <p className="text-white/70 leading-relaxed whitespace-pre-wrap">
-                  {product.description}
+                  {displayDescription}
                 </p>
-              </div>
+                
+                {/* 더보기/접기 버튼 */}
+                {shouldShowReadMore && (
+                  <button
+                    onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
+                    className="mt-4 flex items-center gap-2 text-brand-neon hover:text-brand-cyan transition-colors font-semibold"
+                  >
+                    {isDescriptionExpanded ? (
+                      <>
+                        <span>접기</span>
+                        <ChevronUpIcon className="w-5 h-5" />
+                      </>
+                    ) : (
+                      <>
+                        <span>전체 설명 보기</span>
+                        <ChevronDownIcon className="w-5 h-5" />
+                      </>
+                    )}
+                  </button>
+                )}
+              </motion.div>
             </div>
           )}
 
@@ -211,6 +258,31 @@ export default function ProductDetail({ product }: ProductDetailProps) {
           </div>
         </div>
       </div>
+
+      {/* 관련 상품 섹션 */}
+      {relatedProducts && relatedProducts.length > 0 && (
+        <div className="mt-20 pt-12 border-t border-white/10">
+          <div className="container-custom">
+            <h2 className="text-3xl font-bold text-white mb-8">관련 상품</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              {relatedProducts.slice(0, 4).map((relatedProduct) => (
+                <ProductCard key={relatedProduct.id} product={relatedProduct} />
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 이미지 갤러리 모달 */}
+      {images.length > 0 && (
+        <ImageGalleryModal
+          images={images}
+          initialIndex={selectedImage}
+          productName={product.name}
+          isOpen={isGalleryOpen}
+          onClose={() => setIsGalleryOpen(false)}
+        />
+      )}
 
       {/* 구조화된 데이터 (SEO) */}
       <script
