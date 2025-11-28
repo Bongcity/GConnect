@@ -5,15 +5,18 @@
   "main": "./index.ts",
   "types": "./index.ts",
   "scripts": {
-    "generate": "prisma generate",
+    "generate": "prisma generate && prisma generate --schema=prisma/schema-ddro.prisma",
+    "generate:main": "prisma generate",
+    "generate:ddro": "prisma generate --schema=prisma/schema-ddro.prisma",
     "push": "prisma db push",
     "studio": "prisma studio",
+    "studio:ddro": "prisma studio --schema=prisma/schema-ddro.prisma",
     "migrate": "prisma migrate dev",
     "format": "prisma format",
     "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
-    "@prisma/client": "^5.9.1"
+    "@prisma/client": "^5.22.0"
   },
   "devDependencies": {
     "prisma": "^5.9.1",
@@ -21,4 +24,3 @@
     "typescript": "^5.3.3"
   }
 }
-

@@ -16,8 +16,7 @@
     "@gconnect/lib": "workspace:*",
     "@gconnect/ui": "workspace:*",
     "@headlessui/react": "^1.7.19",
-    "@heroicons/react": "^2.1.3",
-    "framer-motion": "^11.1.7"
+    "@heroicons/react": "^2.1.3"
   },
   "devDependencies": {
     "@types/node": "^20",

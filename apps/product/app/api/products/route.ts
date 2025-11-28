@@ -10,18 +10,18 @@ export async function GET(req: NextRequest) {
     const skip = (page - 1) * limit;
 
     // 정렬 옵션
-    let orderBy: any = { createdAt: 'desc' };
+    let orderBy: any = { created_at: 'desc' };
     if (sort === 'price_low') {
-      orderBy = { price: 'asc' };
+      orderBy = { sale_price: 'asc' };
     } else if (sort === 'price_high') {
-      orderBy = { price: 'desc' };
+      orderBy = { sale_price: 'desc' };
     }
 
     // 상품 조회
     const [products, total] = await Promise.all([
       prisma.product.findMany({
         where: {
-          isActive: true,
+          enabled: true,
         },
         include: {
           user: {
@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
       }),
       prisma.product.count({
         where: {
-          isActive: true,
+          enabled: true,
         },
       }),
     ]);

@@ -136,56 +136,70 @@ model VerificationToken {
 }
 
 // ============================================
-// 상품 관리
+// 상품 관리 (DDRo 기준 구조 적용)
 // ============================================
 
-/// 상품 정보
+/// SELLER 상품 정보 (GCONNECT에 가입한 파트너 스토어 상품)
+/// ⚠️ DDRo의 affiliate_products 구조를 따라 설계됨
+/// ⚠️ GCONNECT는 자동 증가 ID 사용 (DDRo는 수동 관리)
 model Product {
-  id              String    @id @default(uuid())
-  userId          String    // 상품 소유자
+  id                            BigInt    @id @default(autoincrement())
+  userId                        String    // 상품 소유자 (User.id 참조)
   
-  // 네이버 스마트스토어 정보
-  naverProductId  String?   @db.NVarChar(100)
-  naverProductNo  String?   @db.NVarChar(50)
+  // 제휴 상점 정보 (DDRo와 동일한 구조)
+  affiliate_store_id            BigInt?
+  store_name                    String?   @db.NVarChar(200)
+  brand_store                   Boolean?
+  store_status                  String?   @db.NVarChar(50)
   
   // 상품 기본 정보
-  name            String    @db.NVarChar(500)
-  description     String?   @db.NVarChar(Max)
-  price           Decimal?  @db.Decimal(12, 2)
-  salePrice       Decimal?  @db.Decimal(12, 2)
-  stockQuantity   Int?
+  product_name                  String?   @db.NVarChar(500)
+  product_status                String?   @db.NVarChar(50)
   
-  // 이미지
-  imageUrl        String?   @db.NVarChar(1000)
-  thumbnailUrl    String?   @db.NVarChar(1000)
+  // 가격 정보
+  sale_price                    BigInt?
+  discounted_sale_price         BigInt?
+  discounted_rate               Float?
   
-  // 카테고리
-  category1       String?   @db.NVarChar(100)
-  category2       String?   @db.NVarChar(100)
-  category3       String?   @db.NVarChar(100)
-  categoryPath    String?   @db.NVarChar(500)
+  // 수수료 정보
+  commission_rate               Float?
+  promotion_commission_rate     Float?
   
-  // 구글 노출 상태
-  isActive        Boolean   @default(true)
-  isGoogleExposed Boolean   @default(false)
-  googleUrl       String?   @db.NVarChar(1000)
+  // 이미지 정보
+  representative_product_image_url  String?   @db.NVarChar(1000)
+  other_product_image_urls      String?   @db.NVarChar(Max)
   
-  // 동기화 정보
-  lastSyncedAt    DateTime?
-  syncStatus      String    @default("PENDING") @db.NVarChar(50) // PENDING, SYNCED, ERROR
-  syncError       String?   @db.NVarChar(Max)
+  // URL 정보
+  product_url                   String?   @db.NVarChar(1000)
+  product_description_url       String?   @db.NVarChar(1000)
+  affiliate_url                 String?   @db.NVarChar(1000)
+  affiliate_url_id              BigInt?
+  affiliate_url_updated_at      DateTime?
+  
+  // 프로모션 정보 (JSON)
+  promotion_json                String?   @db.NVarChar(Max)
+  
+  // 상태
+  enabled                       Boolean?  @default(true)
+  
+  // 수집 메타 정보
+  source_keyword                String?   @db.NVarChar(200)
+  source_cid                    String?   @db.NVarChar(50)
+  source_rank                   Int?
+  google_in                     Int?
   
   // 타임스탬프
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  created_at                    DateTime? @default(now())
+  updated_at                    DateTime? @default(now())
   
   // 관계
-  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  analytics       ProductAnalytics[]
+  user                          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   
   @@index([userId])
-  @@index([naverProductId])
-  @@map("Products")
+  @@index([source_cid])
+  @@index([source_keyword])
+  @@index([created_at])
+  @@map("affiliate_products")
 }
 
 /// 동기화 로그
@@ -351,30 +365,32 @@ model DailyAnalytics {
 }
 
 /// 상품별 성과
-model ProductAnalytics {
-  id              String   @id @default(uuid())
-  productId       String
-  date            DateTime @db.Date
-  
-  // 구글 성과
-  impressions     Int      @default(0) // 노출 수
-  clicks          Int      @default(0) // 클릭 수
-  ctr             Float    @default(0) // 클릭률
-  
-  // 순위
-  avgPosition     Float?   // 평균 검색 순위
-  topKeyword      String?  @db.NVarChar(200) // 주요 키워드
-  
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  
-  product         Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  
-  @@unique([productId, date])
-  @@index([productId])
-  @@index([date])
-  @@map("ProductAnalytics")
-}
+/// ⚠️ TODO: Product ID가 BigInt로 변경되어 임시로 비활성화됨
+/// 향후 productId를 BigInt로 변경하여 재활성화 필요
+// model ProductAnalytics {
+//   id              String   @id @default(uuid())
+//   productId       BigInt
+//   date            DateTime @db.Date
+//   
+//   // 구글 성과
+//   impressions     Int      @default(0) // 노출 수
+//   clicks          Int      @default(0) // 클릭 수
+//   ctr             Float    @default(0) // 클릭률
+//   
+//   // 순위
+//   avgPosition     Float?   // 평균 검색 순위
+//   topKeyword      String?  @db.NVarChar(200) // 주요 키워드
+//   
+//   createdAt       DateTime @default(now())
+//   updatedAt       DateTime @updatedAt
+//   
+//   product         Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+//   
+//   @@unique([productId, date])
+//   @@index([productId])
+//   @@index([date])
+//   @@map("ProductAnalytics")
+// }
 
 // ============================================
 // Google Shopping 피드
@@ -414,3 +430,60 @@ model FeedSettings {
   @@map("FeedSettings")
 }
 
+// ============================================
+// 네이버 카테고리 시스템 (DDRo 기준)
+// ============================================
+
+/// 네이버 카테고리 정보
+model NaverCategory {
+  id                BigInt    @id @default(autoincrement())
+  category_1        String?   @db.NVarChar(100)
+  category_2        String?   @db.NVarChar(100)
+  category_3        String?   @db.NVarChar(100)
+  cid               String?   @db.NVarChar(50)
+  created_at        DateTime? @default(now())
+  
+  @@map("NaverCategories")
+  @@index([cid])
+}
+
+/// 네이버 수집 진행 상태
+model NaverCollectionProgress {
+  id                BigInt    @id @default(autoincrement())
+  cid               String?   @db.NVarChar(50)
+  category_1        String?   @db.NVarChar(100)
+  category_2        String?   @db.NVarChar(100)
+  category_3        String?   @db.NVarChar(100)
+  collection_type   String?   @db.NVarChar(20)
+  status            String?   @db.NVarChar(20)
+  started_at        DateTime?
+  completed_at      DateTime?
+  error_message     String?   @db.NVarChar(500)
+  retry_count       Int?      @default(0)
+  created_at        DateTime? @default(now())
+  updated_at        DateTime? @default(now())
+  
+  @@map("NaverCollectionProgress")
+}
+
+/// 네이버 쇼핑 키워드
+model NaverShoppingKeyword {
+  id                BigInt    @id @default(autoincrement())
+  category_1        String?   @db.NVarChar(100)
+  category_2        String?   @db.NVarChar(100)
+  category_3        String?   @db.NVarChar(100)
+  cid               String?   @db.NVarChar(50)
+  rank              Int?
+  keyword           String?   @db.NVarChar(200)
+  collected_date    DateTime? @db.Date
+  start_date        DateTime? @db.Date
+  end_date          DateTime? @db.Date
+  status            String?   @default("completed") @db.NVarChar(20)
+  updated_at        DateTime? @default(now())
+  brandlistin       Int?
+  brandlitin        Int?
+  
+  @@map("NaverShoppingKeywords")
+  @@index([cid])
+  @@index([keyword])
+}
