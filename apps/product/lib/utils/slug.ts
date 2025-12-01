@@ -49,3 +49,4 @@ export function reconstructProductId(type: string, numericId: string): string {
   return `${upperType}_${numericId}`;
 }
 
+

@@ -27,3 +27,4 @@ export const config = {
   matcher: '/products/:path*',
 };
 
+
