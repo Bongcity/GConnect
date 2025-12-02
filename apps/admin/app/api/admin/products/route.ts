@@ -17,13 +17,19 @@ export async function GET(req: NextRequest) {
 
     const where: any = {};
 
-    if (status !== 'ALL') {
-      where.status = status;
+    // 상태 필터링 (enabled 필드 사용)
+    if (status === 'ACTIVE') {
+      where.enabled = true;
+    } else if (status === 'INACTIVE') {
+      where.enabled = false;
+    } else if (status === 'GOOGLE_ENABLED') {
+      where.google_in = 1;
     }
+    // 'ALL'인 경우 where 조건 없음
 
     if (search) {
       where.OR = [
-        { name: { contains: search } },
+        { product_name: { contains: search } },
         {
           user: {
             OR: [
@@ -37,21 +43,55 @@ export async function GET(req: NextRequest) {
 
     const products = await prisma.product.findMany({
       where,
-      include: {
+      select: {
+        id: true,
+        product_name: true,
+        sale_price: true,
+        representative_product_image_url: true,
+        enabled: true,
+        google_in: true,
+        product_url: true,
+        store_name: true,
+        created_at: true,
+        updated_at: true,
         user: {
           select: {
+            id: true,
             email: true,
             shopName: true,
           },
         },
       },
       orderBy: {
-        createdAt: 'desc',
+        created_at: 'desc',
       },
-      take: 100,
+      take: 500, // 더 많은 상품 조회
     });
 
-    return NextResponse.json(products);
+    // BigInt를 문자열로 변환
+    const serializedProducts = products.map((product) => ({
+      ...product,
+      id: product.id.toString(),
+      sale_price: product.sale_price ? product.sale_price.toString() : null,
+    }));
+
+    // 통계 정보도 함께 반환
+    const totalCount = await prisma.product.count({ where });
+    const googleEnabledCount = await prisma.product.count({
+      where: { ...where, google_in: 1 },
+    });
+    const activeCount = await prisma.product.count({
+      where: { ...where, enabled: true },
+    });
+
+    return NextResponse.json({
+      products: serializedProducts,
+      stats: {
+        total: totalCount,
+        googleEnabled: googleEnabledCount,
+        active: activeCount,
+      },
+    });
   } catch (error: any) {
     console.error('상품 조회 실패:', error);
     return NextResponse.json(

@@ -17,15 +17,31 @@ export async function GET() {
 
     const products = await prisma.product.findMany({
       where: { userId: session.user.id },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { created_at: 'desc' },
     });
 
     return NextResponse.json({
       ok: true,
       products: products.map((p) => ({
-        ...p,
-        price: Number(p.price),
-        salePrice: p.salePrice ? Number(p.salePrice) : null,
+        id: p.id.toString(),
+        name: p.product_name || '상품명 없음',
+        price: Number(p.sale_price || 0),
+        salePrice: p.discounted_sale_price ? Number(p.discounted_sale_price) : null,
+        imageUrl: p.representative_product_image_url,
+        thumbnailUrl: p.representative_product_image_url,
+        stockQuantity: null,
+        isActive: p.enabled ?? true,
+        isGoogleExposed: p.google_in === 1,
+        syncStatus: 'SYNCED',
+        categoryPath: p.source_keyword || null,
+        updatedAt: p.updated_at?.toISOString() || new Date().toISOString(),
+        // 원본 데이터도 포함 (상세 페이지용)
+        _raw: {
+          store_name: p.store_name,
+          product_status: p.product_status,
+          product_url: p.product_url,
+          discounted_rate: p.discounted_rate,
+        }
       })),
     });
   } catch (error) {

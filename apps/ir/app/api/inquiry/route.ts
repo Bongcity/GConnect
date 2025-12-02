@@ -4,6 +4,48 @@ import { irInquirySchema } from '@gconnect/lib/validations';
 import { ZodError } from 'zod';
 
 /**
+ * 관리자 알림 생성 (Admin 앱의 알림 로직)
+ */
+async function createAdminNotification(inquiryId: number) {
+  try {
+    const inquiry = await prisma.iRInquiry.findUnique({
+      where: { id: inquiryId },
+      select: {
+        storeName: true,
+        email: true,
+        inquiryType: true,
+        planIntent: true,
+      },
+    });
+
+    if (!inquiry) return;
+
+    // 알림 설정 확인
+    const settings = await prisma.notificationSettings.findFirst();
+    if (settings && !settings.inquiryEnabled) {
+      console.log('문의 알림이 비활성화되어 있습니다.');
+      return;
+    }
+
+    // 알림 생성
+    await prisma.adminNotification.create({
+      data: {
+        type: 'INQUIRY',
+        title: '신규 문의 접수',
+        message: `${inquiry.storeName}(${inquiry.email})에서 ${inquiry.inquiryType} 문의가 접수되었습니다. 플랜 의도: ${inquiry.planIntent || '미정'}`,
+        severity: 'INFO',
+        link: '/dashboard/support/inquiries',
+        metadata: JSON.stringify({ inquiryId }),
+      },
+    });
+
+    console.log(`✅ 신규 문의 알림 생성: ${inquiryId}`);
+  } catch (error) {
+    console.error('알림 생성 실패:', error);
+  }
+}
+
+/**
  * IR 문의 접수 API
  * POST /api/inquiry
  */
@@ -34,6 +76,11 @@ export async function POST(request: NextRequest) {
         isHandled: false,
       },
     });
+
+    // 관리자 알림 생성 (비동기, 실패해도 문의 접수는 성공)
+    createAdminNotification(inquiry.id).catch((err) =>
+      console.error('알림 생성 중 오류:', err)
+    );
 
     // 성공 응답
     return NextResponse.json(

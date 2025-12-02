@@ -42,6 +42,9 @@ model IRInquiry {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   
+  // 관계
+  responses    InquiryResponse[]
+  
   @@map("IRInquiries")
 }
 
@@ -88,6 +91,7 @@ model User {
   feedSettings  FeedSettings?
   syncSchedule  SyncSchedule?
   webhooks      Webhook[]
+  subscriptions UserSubscription[]
   
   @@map("Users")
 }
@@ -133,6 +137,121 @@ model VerificationToken {
   
   @@unique([identifier, token])
   @@map("VerificationTokens")
+}
+
+// ============================================
+// 구독 & 플랜 관리
+// ============================================
+
+/// 구독 플랜 정의
+model Plan {
+  id              String   @id @default(uuid())
+  
+  // 플랜 정보
+  name            String   @db.NVarChar(100) // Starter, Pro, Enterprise
+  displayName     String   @db.NVarChar(100) // 표시용 이름
+  description     String?  @db.NVarChar(500)
+  
+  // 제한 사항
+  maxProducts     Int      // 최대 상품 수 (10000, 50000, 999999)
+  maxApiCalls     Int?     // 월 API 호출 제한
+  
+  // 가격
+  monthlyPrice    Int      // 월 구독료 (원)
+  yearlyPrice     Int?     // 연 구독료 (원)
+  
+  // 기능 제한
+  features        String?  @db.NVarChar(Max) // JSON: 사용 가능한 기능 목록
+  
+  // 상태
+  isActive        Boolean  @default(true)
+  isPublic        Boolean  @default(true) // 공개 플랜 여부
+  sortOrder       Int      @default(0)    // 정렬 순서
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // 관계
+  subscriptions   UserSubscription[]
+  
+  @@map("Plans")
+}
+
+/// 사용자 구독 정보
+model UserSubscription {
+  id              String   @id @default(uuid())
+  userId          String
+  planId          String
+  
+  // 구독 기간
+  startDate       DateTime
+  endDate         DateTime?
+  
+  // 상태
+  status          String   @db.NVarChar(50) // ACTIVE, EXPIRED, CANCELLED, TRIAL
+  
+  // 결제 정보
+  paymentMethod   String?  @db.NVarChar(50) // CARD, BANK, MANUAL
+  paymentId       String?  @db.NVarChar(200) // 외부 결제 시스템 ID
+  
+  // 사용량 추적
+  currentProducts Int      @default(0) // 현재 등록된 상품 수
+  
+  // 자동 갱신
+  autoRenew       Boolean  @default(true)
+  
+  // 메모 (관리자용)
+  adminNote       String?  @db.NVarChar(Max)
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // 관계
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan            Plan     @relation(fields: [planId], references: [id])
+  payments        Payment[]
+  
+  @@index([userId])
+  @@index([planId])
+  @@index([status])
+  @@map("UserSubscriptions")
+}
+
+/// 결제 내역
+model Payment {
+  id              String   @id @default(uuid())
+  subscriptionId  String
+  userId          String
+  
+  // 결제 정보
+  amount          Int      // 결제 금액 (원)
+  currency        String   @default("KRW") @db.NVarChar(10)
+  method          String   @db.NVarChar(50) // CARD, BANK, MANUAL
+  status          String   @db.NVarChar(50) // SUCCESS, FAILED, REFUNDED, PENDING
+  
+  // 외부 결제 시스템
+  transactionId   String?  @db.NVarChar(200) // 외부 결제 ID
+  paymentGateway  String?  @db.NVarChar(50)  // 결제 게이트웨이 (TOSS, NICE, etc)
+  
+  // 환불 정보
+  refundReason    String?  @db.NVarChar(500)
+  refundedAt      DateTime?
+  refundedBy      String?  // 환불 처리한 관리자 ID
+  
+  // 메타데이터
+  metadata        String?  @db.NVarChar(Max) // JSON
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // 관계
+  subscription    UserSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  
+  @@index([subscriptionId])
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("Payments")
 }
 
 // ============================================
@@ -486,4 +605,110 @@ model NaverShoppingKeyword {
   @@map("NaverShoppingKeywords")
   @@index([cid])
   @@index([keyword])
+}
+
+// ============================================
+// 고객 지원 시스템
+// ============================================
+
+/// FAQ 관리
+model FAQ {
+  id          String   @id @default(uuid())
+  category    String   @db.NVarChar(100) // 카테고리 (사용법, 요금, 기술지원, 기타)
+  question    String   @db.NVarChar(500)
+  answer      String   @db.NVarChar(Max)
+  isPublic    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  viewCount   Int      @default(0)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([category])
+  @@index([isPublic])
+  @@index([sortOrder])
+  @@map("FAQs")
+}
+
+/// 공지사항
+model Announcement {
+  id          String    @id @default(uuid())
+  title       String    @db.NVarChar(200)
+  content     String    @db.NVarChar(Max)
+  isPinned    Boolean   @default(false)
+  isPublic    Boolean   @default(true)
+  startDate   DateTime?
+  endDate     DateTime?
+  viewCount   Int       @default(0)
+  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  @@index([isPinned])
+  @@index([isPublic])
+  @@index([createdAt])
+  @@map("Announcements")
+}
+
+/// 문의 답변
+model InquiryResponse {
+  id          String   @id @default(uuid())
+  inquiryId   Int
+  adminId     String   @db.NVarChar(450)
+  adminName   String   @db.NVarChar(100)
+  response    String   @db.NVarChar(Max)
+  
+  createdAt   DateTime @default(now())
+  
+  inquiry     IRInquiry @relation(fields: [inquiryId], references: [id], onDelete: Cascade)
+  
+  @@index([inquiryId])
+  @@map("InquiryResponses")
+}
+
+// ============================================
+// 알림 시스템
+// ============================================
+
+/// 관리자 알림
+model AdminNotification {
+  id          String   @id @default(uuid())
+  type        String   @db.NVarChar(50) // SYSTEM, SYNC, PAYMENT, PLAN, INQUIRY
+  title       String   @db.NVarChar(200)
+  message     String   @db.NVarChar(1000)
+  severity    String   @db.NVarChar(20) // INFO, WARNING, ERROR
+  isRead      Boolean  @default(false)
+  link        String?  @db.NVarChar(500)
+  metadata    String?  @db.NVarChar(Max) // JSON
+  
+  createdAt   DateTime @default(now())
+  
+  @@index([type])
+  @@index([isRead])
+  @@index([createdAt])
+  @@map("AdminNotifications")
+}
+
+/// 알림 설정
+model NotificationSettings {
+  id                    String  @id @default(uuid())
+  
+  // 알림 활성화 여부
+  syncFailureEnabled    Boolean @default(true)
+  paymentFailureEnabled Boolean @default(true)
+  planExpiryEnabled     Boolean @default(true)
+  inquiryEnabled        Boolean @default(true)
+  
+  // 이메일 알림
+  emailEnabled          Boolean @default(false)
+  emailAddress          String? @db.NVarChar(255)
+  
+  // 웹훅 연동
+  slackWebhook          String? @db.NVarChar(500)
+  discordWebhook        String? @db.NVarChar(500)
+  
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  
+  @@map("NotificationSettings")
 }

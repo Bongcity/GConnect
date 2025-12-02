@@ -46,15 +46,15 @@ export async function GET(req: Request) {
       where: { userId: session.user.id },
       select: {
         id: true,
-        name: true,
-        isActive: true,
-        isGoogleExposed: true,
+        product_name: true,
+        enabled: true,
+        google_in: true,
       },
     });
 
     const totalProducts = products.length;
-    const activeProducts = products.filter((p) => p.isActive).length;
-    const exposedProducts = products.filter((p) => p.isGoogleExposed).length;
+    const activeProducts = products.filter((p) => p.enabled).length;
+    const exposedProducts = products.filter((p) => p.google_in === 1).length;
 
     // 합계 계산
     const totals = analyticsData.reduce(

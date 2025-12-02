@@ -118,19 +118,20 @@ IRInquiry {
 }
 ```
 
-#### 상점 & 요금제
+#### 구독 & 플랜
 ```typescript
-Shop {
-  id, name, naverShopName, naverUrl, naverShopId,
-  status, currentPlanId
-}
-
 Plan {
-  id, name, type, maxProducts, monthlyPrice, isActive
+  id, name, displayName, description,
+  maxProducts, maxApiCalls,
+  monthlyPrice, yearlyPrice,
+  features, isActive, isPublic
 }
 
-ShopPlanSubscription {
-  shopId, planId, startDate, endDate, status
+UserSubscription {
+  id, userId, planId,
+  startDate, endDate, status,
+  paymentMethod, paymentId,
+  currentProducts, autoRenew
 }
 ```
 
@@ -215,6 +216,7 @@ pnpm db:migrate     # 마이그레이션 생성
 - `POST /api/user/change-password` - 비밀번호 변경
 - `GET /api/user/shop-settings` - 상점 설정 조회
 - `PUT /api/user/shop-settings` - 상점 설정 수정
+- `GET /api/user/subscription` - 구독 정보 조회
 
 #### 통계
 - `GET /api/analytics` - 통계 데이터
@@ -237,6 +239,8 @@ pnpm db:migrate     # 마이그레이션 생성
 - `GET /api/admin/products` - 전체 상품 관리
 - `GET /api/admin/stats` - 플랫폼 통계
 - `GET /api/admin/logs` - 시스템 로그
+- `GET /api/admin/subscriptions` - 구독 관리
+- `GET /api/admin/feed-settings` - Google 피드 설정 관리
 
 ---
 

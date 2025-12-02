@@ -5,13 +5,11 @@ import ShopSettings from '@/components/settings/ShopSettings';
 import ProfileSettings from '@/components/settings/ProfileSettings';
 import PasswordSettings from '@/components/settings/PasswordSettings';
 import NaverApiSettings from '@/components/settings/NaverApiSettings';
-import FeedSettings from '@/components/settings/FeedSettings';
 import SchedulerSettings from '@/components/settings/SchedulerSettings';
 
 const tabs = [
   { name: '상점 설정', component: ShopSettings },
   { name: '네이버 API', component: NaverApiSettings },
-  { name: 'Google 피드', component: FeedSettings },
   { name: '자동 동기화', component: SchedulerSettings },
   { name: '프로필', component: ProfileSettings },
   { name: '비밀번호 변경', component: PasswordSettings },

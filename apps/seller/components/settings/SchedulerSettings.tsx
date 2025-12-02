@@ -354,7 +354,7 @@ export default function SchedulerSettings() {
               placeholder="email@example.com"
             />
             <p className="mt-1 text-xs text-white/50">
-              동기화 결과를 받을 이메일 주소 (현재 기능 개발 중)
+              동기화 결과를 받을 이메일 주소
             </p>
           </div>
         )}

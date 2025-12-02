@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
-  PlusIcon,
   ArrowPathIcon,
   MagnifyingGlassIcon,
 } from '@heroicons/react/24/outline';
@@ -23,12 +22,27 @@ interface Product {
   updatedAt: string;
 }
 
+interface SubscriptionData {
+  plan: {
+    displayName: string;
+    maxProducts: number;
+  };
+  usage: {
+    currentProducts: number;
+    maxProducts: number;
+    remainingSlots: number;
+    usagePercentage: number;
+  };
+  needsUpgrade: boolean;
+}
+
 export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all');
+  const [subscriptionData, setSubscriptionData] = useState<SubscriptionData | null>(null);
 
   // 상품 목록 조회
   const fetchProducts = async () => {
@@ -47,7 +61,21 @@ export default function ProductsPage() {
 
   useEffect(() => {
     fetchProducts();
+    fetchSubscription();
   }, []);
+
+  // 구독 정보 조회
+  const fetchSubscription = async () => {
+    try {
+      const response = await fetch('/api/user/subscription');
+      if (response.ok) {
+        const data = await response.json();
+        setSubscriptionData(data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch subscription:', error);
+    }
+  };
 
   // 상품 동기화
   const handleSync = async () => {
@@ -118,6 +146,41 @@ export default function ProductsPage() {
 
   return (
     <div className="max-w-7xl">
+      {/* 플랜 제한 알림 */}
+      {subscriptionData && (
+        <div className="mb-6 p-4 rounded-xl bg-gradient-to-r from-brand-neon/10 to-brand-cyan/10 border border-brand-neon/20">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-semibold text-white mb-1">
+                {subscriptionData.plan.displayName} 플랜
+              </h3>
+              <div className="flex items-center gap-4 text-sm">
+                <span className="text-white/70">
+                  상품 등록: <span className="text-white font-semibold">{subscriptionData.usage.currentProducts}</span> / {subscriptionData.usage.maxProducts}
+                </span>
+                <span className="text-white/70">
+                  남은 슬롯: <span className={subscriptionData.usage.remainingSlots <= 10 ? 'text-red-400 font-semibold' : 'text-brand-neon font-semibold'}>
+                    {subscriptionData.usage.remainingSlots}개
+                  </span>
+                </span>
+              </div>
+            </div>
+            {subscriptionData.needsUpgrade && (
+              <Link href="/dashboard/settings" className="btn-neon text-sm">
+                플랜 업그레이드
+              </Link>
+            )}
+          </div>
+          {subscriptionData.needsUpgrade && (
+            <div className="mt-3 p-3 rounded-lg bg-red-500/10 border border-red-500/20">
+              <p className="text-sm text-red-400">
+                ⚠️ 상품 동기화 한도에 도달했습니다. 네이버에서 더 많은 상품을 가져오려면 플랜을 업그레이드하세요.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* 헤더 */}
       <div className="mb-8">
         <div className="flex items-center justify-between mb-4">
@@ -129,15 +192,11 @@ export default function ProductsPage() {
             <button
               onClick={handleSync}
               disabled={isSyncing}
-              className="btn-secondary inline-flex items-center gap-2 disabled:opacity-50"
+              className="btn-neon inline-flex items-center gap-2 disabled:opacity-50"
             >
               <ArrowPathIcon className={`w-5 h-5 ${isSyncing ? 'animate-spin' : ''}`} />
-              {isSyncing ? '동기화 중...' : '상품 동기화'}
+              {isSyncing ? '동기화 중...' : '네이버 상품 가져오기'}
             </button>
-            <Link href="/dashboard/products/new" className="btn-neon inline-flex items-center gap-2">
-              <PlusIcon className="w-5 h-5" />
-              상품 추가
-            </Link>
           </div>
         </div>
 
@@ -253,15 +312,15 @@ export default function ProductsPage() {
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
           {filteredProducts.map((product) => (
             <Link
               key={product.id}
               href={`/dashboard/products/${product.id}`}
-              className="glass-card-hover p-6 group"
+              className="glass-card-hover p-4 group"
             >
               {/* 상품 이미지 */}
-              <div className="aspect-square rounded-xl bg-white/5 mb-4 overflow-hidden">
+              <div className="aspect-square rounded-xl bg-white/5 mb-3 overflow-hidden">
                 {product.imageUrl ? (
                   <img
                     src={product.imageUrl}
@@ -283,35 +342,35 @@ export default function ProductsPage() {
               </div>
 
               {/* 상품 정보 */}
-              <div className="mb-3">
-                <h3 className="text-lg font-semibold text-white mb-2 line-clamp-2 group-hover:text-brand-neon transition-colors">
+              <div className="mb-2">
+                <h3 className="text-sm font-semibold text-white mb-1 line-clamp-2 group-hover:text-brand-neon transition-colors">
                   {product.name}
                 </h3>
                 {product.categoryPath && (
-                  <p className="text-xs text-white/50 mb-2">{product.categoryPath}</p>
+                  <p className="text-xs text-white/50 mb-1 line-clamp-1">{product.categoryPath}</p>
                 )}
               </div>
 
               {/* 가격 */}
-              <div className="mb-4">
+              <div className="mb-3">
                 {product.salePrice && product.salePrice < product.price ? (
-                  <div>
-                    <span className="text-lg font-bold text-brand-neon">
+                  <div className="flex flex-col">
+                    <span className="text-base font-bold text-brand-neon">
                       {product.salePrice.toLocaleString()}원
                     </span>
-                    <span className="ml-2 text-sm text-white/50 line-through">
+                    <span className="text-xs text-white/50 line-through">
                       {product.price.toLocaleString()}원
                     </span>
                   </div>
                 ) : (
-                  <span className="text-lg font-bold text-white">
+                  <span className="text-base font-bold text-white">
                     {product.price.toLocaleString()}원
                   </span>
                 )}
               </div>
 
               {/* 상태 배지 */}
-              <div className="flex flex-wrap gap-2 mb-3">
+              <div className="flex flex-wrap gap-1 mb-2">
                 {getSyncStatusBadge(product.syncStatus)}
                 {product.isGoogleExposed && (
                   <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs bg-brand-cyan/10 text-brand-cyan border border-brand-cyan/20">
@@ -327,7 +386,7 @@ export default function ProductsPage() {
 
               {/* 재고 */}
               {product.stockQuantity !== null && product.stockQuantity !== undefined && (
-                <p className="text-sm text-white/60">재고: {product.stockQuantity}개</p>
+                <p className="text-xs text-white/60">재고: {product.stockQuantity}개</p>
               )}
             </Link>
           ))}

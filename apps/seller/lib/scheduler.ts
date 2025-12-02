@@ -374,20 +374,38 @@ async function sendNotification(schedule: any, status: string, details: any) {
   try {
     console.log(`📧 알림 전송 - 사용자: ${schedule.userId}, 상태: ${status}`);
     
-    // 실제 이메일 전송 로직은 추후 구현
-    // 예: Nodemailer, SendGrid, AWS SES 등
-    
-    if (schedule.notifyEmail) {
-      console.log(`📨 이메일: ${schedule.notifyEmail}`);
-      console.log(`📊 상세 정보:`, details);
+    if (!schedule.notifyEmail) {
+      console.log('⚠️ 알림 이메일이 설정되지 않았습니다.');
+      return;
     }
     
-    // TODO: 실제 이메일 전송 구현
-    // await sendEmail({
-    //   to: schedule.notifyEmail,
-    //   subject: `[GConnect] 자동 동기화 ${status === 'SUCCESS' ? '완료' : '실패'}`,
-    //   body: generateEmailBody(schedule, status, details),
-    // });
+    const { sendEmail, generateSyncSuccessEmail, generateSyncErrorEmail } = await import('./email');
+    
+    const subject = status === 'SUCCESS' 
+      ? '[GConnect] 자동 동기화 완료 ✅'
+      : '[GConnect] 자동 동기화 실패 ⚠️';
+    
+    const html = status === 'SUCCESS'
+      ? generateSyncSuccessEmail({
+          shopName: schedule.user?.shopName,
+          itemsTotal: details.itemsTotal || 0,
+          itemsSynced: details.itemsSynced || 0,
+          itemsFailed: details.itemsFailed || 0,
+          duration: details.duration || 0,
+        })
+      : generateSyncErrorEmail({
+          shopName: schedule.user?.shopName,
+          itemsTotal: details.itemsTotal,
+          itemsSynced: details.itemsSynced,
+          itemsFailed: details.itemsFailed,
+          error: details.error,
+        });
+    
+    await sendEmail({
+      to: schedule.notifyEmail,
+      subject,
+      html,
+    });
   } catch (error) {
     console.error('알림 전송 실패:', error);
   }
