@@ -11,6 +11,9 @@ importers:
       '@types/node-cron':
         specifier: ^3.0.11
         version: 3.0.11
+      dotenv:
+        specifier: ^17.2.3
+        version: 17.2.3
       node-cron:
         specifier: ^3.0.3
         version: 3.0.3
@@ -1877,6 +1880,11 @@ packages:
     dependencies:
       '@babel/runtime': 7.28.4
       csstype: 3.2.3
+    dev: false
+
+  /dotenv@17.2.3:
+    resolution: {integrity: sha512-JVUnt+DUIzu87TABbhPmNfVdBDt18BLOWjMUFJMSi/Qqg7NTYtabbvSNJGOJ7afbRuv9D/lngizHtP7QyLQ+9w==}
+    engines: {node: '>=12'}
     dev: false
 
   /dunder-proto@1.0.1:

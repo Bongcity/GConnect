@@ -10,6 +10,19 @@
  * - PM2: pm2 start ecosystem.config.js
  */
 
+// 환경 변수 로드 (가장 먼저 실행)
+import dotenv from 'dotenv';
+import path from 'path';
+
+// .env.local 파일 로드
+dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
+// .env 파일도 로드 (fallback)
+dotenv.config({ path: path.resolve(process.cwd(), '.env') });
+
+console.log('[Scheduler] 환경 변수 로드 완료');
+console.log('[Scheduler] DATABASE_URL:', process.env.DATABASE_URL ? '✅' : '❌');
+console.log('[Scheduler] DDRO_DATABASE_URL:', process.env.DDRO_DATABASE_URL ? '✅' : '❌');
+
 import cron from 'node-cron';
 import { prisma } from '../packages/db';
 import { NaverApiClient, transformNaverProduct } from '../apps/seller/lib/naver-api';
