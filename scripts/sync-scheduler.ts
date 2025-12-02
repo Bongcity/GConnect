@@ -24,9 +24,19 @@ console.log('[Scheduler] DATABASE_URL:', process.env.DATABASE_URL ? '✅' : '❌
 console.log('[Scheduler] DDRO_DATABASE_URL:', process.env.DDRO_DATABASE_URL ? '✅' : '❌');
 
 import cron from 'node-cron';
-import { prisma } from '../packages/db';
+import { PrismaClient } from '@prisma/client';
 import { NaverApiClient, transformNaverProduct } from '../apps/seller/lib/naver-api';
 import { createSyncErrorNotification, createSchedulerNotification } from '../lib/notifications';
+
+// Prisma Client 직접 생성 (DDRo import 회피)
+const prisma = new PrismaClient({
+  log: ['error'],
+  datasources: {
+    db: {
+      url: process.env.DATABASE_URL,
+    },
+  },
+});
 
 // 환경 변수
 const CHECK_INTERVAL = process.env.SCHEDULER_CHECK_INTERVAL || '60000'; // 1분
