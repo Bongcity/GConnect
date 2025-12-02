@@ -11,11 +11,9 @@
  */
 
 import cron from 'node-cron';
-import { PrismaClient } from '@gconnect/db';
+import { prisma } from '../packages/db';
 import { NaverApiClient, transformNaverProduct } from '../apps/seller/lib/naver-api';
 import { createSyncErrorNotification, createSchedulerNotification } from '../lib/notifications';
-
-const prisma = new PrismaClient();
 
 // 환경 변수
 const CHECK_INTERVAL = process.env.SCHEDULER_CHECK_INTERVAL || '60000'; // 1분
@@ -378,14 +376,12 @@ async function startScheduler(): Promise<void> {
 process.on('SIGINT', async () => {
   console.log('\n[Scheduler] 종료 신호 수신, 정리 중...');
   await createSchedulerNotification('STOP', '자동 동기화 스케줄러가 중지되었습니다.');
-  await prisma.$disconnect();
   process.exit(0);
 });
 
 process.on('SIGTERM', async () => {
   console.log('\n[Scheduler] 종료 신호 수신, 정리 중...');
   await createSchedulerNotification('STOP', '자동 동기화 스케줄러가 중지되었습니다.');
-  await prisma.$disconnect();
   process.exit(0);
 });
 
@@ -393,7 +389,6 @@ process.on('SIGTERM', async () => {
 startScheduler().catch(async (error) => {
   console.error('[Scheduler] 시작 실패:', error);
   await createSchedulerNotification('ERROR', `스케줄러 시작 실패: ${error.message}`);
-  await prisma.$disconnect();
   process.exit(1);
 });
 
