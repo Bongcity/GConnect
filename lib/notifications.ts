@@ -3,7 +3,17 @@
  * AdminNotification 테이블에 알림을 생성합니다.
  */
 
-import { prisma } from '../packages/db';
+import { PrismaClient } from '@prisma/client';
+
+// Prisma Client 직접 생성 (DDRo import 회피)
+const prisma = new PrismaClient({
+  log: ['error'],
+  datasources: {
+    db: {
+      url: process.env.DATABASE_URL,
+    },
+  },
+});
 
 export interface SyncErrorNotificationData {
   userId: string;
