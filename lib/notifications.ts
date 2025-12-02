@@ -3,7 +3,7 @@
  * AdminNotification 테이블에 알림을 생성합니다.
  */
 
-import { prisma } from '@gconnect/db';
+import { prisma } from '../packages/db';
 
 export interface SyncErrorNotificationData {
   userId: string;
