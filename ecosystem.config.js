@@ -49,9 +49,9 @@ module.exports = {
     // Seller 사이트 (판매자 대시보드)
     {
       name: 'gconnect-seller',
-      script: 'pnpm',
-      args: 'dev --filter @gconnect/seller',
-      cwd: './',
+      script: 'node_modules/.bin/next',
+      args: 'start',
+      cwd: './apps/seller',
       instances: 1,
       autorestart: true,
       watch: false,
