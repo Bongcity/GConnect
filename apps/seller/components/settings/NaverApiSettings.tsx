@@ -138,11 +138,12 @@ export default function NaverApiSettings() {
           📌 네이버 커머스 API 신청 방법
         </h3>
         <ol className="text-xs text-white/70 space-y-1 ml-4 list-decimal">
-          <li>네이버 커머스 API 센터 접속: <a href="https://commerce.naver.com" target="_blank" rel="noopener noreferrer" className="text-brand-neon hover:underline">commerce.naver.com</a></li>
-          <li>스마트스토어 관리자 로그인</li>
-          <li>&apos;상품 관리&apos; → &apos;API 연동 설정&apos; 메뉴</li>
-          <li>API 이용 신청 및 승인 대기</li>
-          <li>승인 후 Client ID와 Client Secret 발급</li>
+          <li>네이버 커머스 API 센터 접속: <a href="https://api.commerce.naver.com" target="_blank" rel="noopener noreferrer" className="text-brand-neon hover:underline">api.commerce.naver.com</a></li>
+          <li>스마트스토어 관리자 계정으로 로그인</li>
+          <li>&apos;내 스토어 애플리케이션 선택&apos; 메뉴에서 신규 생성</li>
+          <li>설명 선택: &apos;상품&apos; (키친메이커)</li>
+          <li>&apos;애플리케이션 ID&apos;와 &apos;애플리케이션 시크릿&apos; 복사하여 아래에 입력</li>
+          <li>API호출 IP: 현재 서버 IP가 자동 등록되어 있어야 합니다</li>
         </ol>
       </div>
 
@@ -192,10 +193,10 @@ export default function NaverApiSettings() {
       )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Client ID */}
+        {/* Application ID */}
         <div>
           <label className="block text-sm font-medium text-white/80 mb-2">
-            Client ID *
+            애플리케이션 ID *
           </label>
           <div className="relative">
             <KeyIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40" />
@@ -206,15 +207,18 @@ export default function NaverApiSettings() {
                 setFormData({ ...formData, naverClientId: e.target.value })
               }
               className="w-full pl-10 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-white/40 focus:outline-none focus:border-brand-neon/50 transition-colors font-mono text-sm"
-              placeholder="예: ABCDEF1234567890"
+              placeholder="예: 4KbqV13RTCuyfV95WDebVs"
             />
           </div>
+          <p className="mt-1 text-xs text-white/50">
+            네이버 API 센터에서 발급받은 애플리케이션 ID를 입력하세요
+          </p>
         </div>
 
-        {/* Client Secret */}
+        {/* Application Secret */}
         <div>
           <label className="block text-sm font-medium text-white/80 mb-2">
-            Client Secret *
+            애플리케이션 시크릿 *
           </label>
           <div className="relative">
             <KeyIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40" />
@@ -225,11 +229,11 @@ export default function NaverApiSettings() {
                 setFormData({ ...formData, naverClientSecret: e.target.value })
               }
               className="w-full pl-10 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-white/40 focus:outline-none focus:border-brand-neon/50 transition-colors font-mono text-sm"
-              placeholder="••••••••••••••••"
+              placeholder="$2a$ 로 시작하는 시크릿 키"
             />
           </div>
           <p className="mt-1 text-xs text-white/50">
-            Client Secret은 암호화되어 안전하게 저장됩니다
+            애플리케이션 시크릿은 암호화되어 안전하게 저장됩니다
           </p>
         </div>
 

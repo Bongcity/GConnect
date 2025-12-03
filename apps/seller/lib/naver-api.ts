@@ -35,8 +35,6 @@ export interface NaverProductListResponse {
 export class NaverApiClient {
   private clientId: string;
   private clientSecret: string;
-  private accessToken?: string;
-  private tokenExpiry?: number;
 
   constructor(credentials: NaverApiCredentials) {
     this.clientId = credentials.clientId;
@@ -44,47 +42,14 @@ export class NaverApiClient {
   }
 
   /**
-   * Access Token 발급
+   * API Gateway 방식의 공통 헤더 생성
    */
-  private async getAccessToken(): Promise<string> {
-    // 토큰이 유효하면 재사용
-    if (this.accessToken && this.tokenExpiry && Date.now() < this.tokenExpiry) {
-      return this.accessToken;
-    }
-
-    try {
-      const response = await fetch('https://api.commerce.naver.com/external/v1/oauth2/token', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: new URLSearchParams({
-          client_id: this.clientId,
-          client_secret: this.clientSecret,
-          grant_type: 'client_credentials',
-          type: 'SELF',
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || 'Failed to get access token');
-      }
-
-      const data = await response.json();
-      this.accessToken = data.access_token;
-      // 토큰 만료 시간 설정 (발급 시간 + 유효기간 - 1분 여유)
-      this.tokenExpiry = Date.now() + (data.expires_in - 60) * 1000;
-
-      if (!this.accessToken) {
-        throw new Error('Access token not received');
-      }
-
-      return this.accessToken;
-    } catch (error) {
-      console.error('Get access token error:', error);
-      throw new Error('네이버 API 인증에 실패했습니다.');
-    }
+  private getHeaders(): HeadersInit {
+    return {
+      'Content-Type': 'application/json',
+      'X-NCP-APIGW-API-KEY-ID': this.clientId,
+      'X-NCP-APIGW-API-KEY': this.clientSecret,
+    };
   }
 
   /**
@@ -92,32 +57,37 @@ export class NaverApiClient {
    */
   async getProducts(page: number = 1, size: number = 100): Promise<NaverProductListResponse> {
     try {
-      const accessToken = await this.getAccessToken();
-
       const response = await fetch(
-        `https://api.commerce.naver.com/external/v2/products?page=${page}&size=${size}`,
+        `https://api.commerce.naver.com/external/v1/products?page=${page}&size=${size}`,
         {
           method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'Content-Type': 'application/json',
-          },
+          headers: this.getHeaders(),
         }
       );
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || 'Failed to fetch products');
+        const errorText = await response.text();
+        let errorData;
+        try {
+          errorData = JSON.parse(errorText);
+        } catch {
+          errorData = { message: errorText };
+        }
+        console.error('Naver API error:', response.status, errorData);
+        throw new Error(errorData.message || `API 호출 실패 (${response.status})`);
       }
 
       const data = await response.json();
 
       return {
-        products: data.contents || [],
-        totalCount: data.totalElements || 0,
+        products: data.products || data.contents || [],
+        totalCount: data.totalCount || data.totalElements || 0,
       };
     } catch (error) {
       console.error('Get products error:', error);
+      if (error instanceof Error) {
+        throw error;
+      }
       throw new Error('상품 목록 조회에 실패했습니다.');
     }
   }
@@ -127,16 +97,11 @@ export class NaverApiClient {
    */
   async getProduct(productId: string): Promise<NaverProduct | null> {
     try {
-      const accessToken = await this.getAccessToken();
-
       const response = await fetch(
-        `https://api.commerce.naver.com/external/v2/products/${productId}`,
+        `https://api.commerce.naver.com/external/v1/products/${productId}`,
         {
           method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'Content-Type': 'application/json',
-          },
+          headers: this.getHeaders(),
         }
       );
 
@@ -144,14 +109,23 @@ export class NaverApiClient {
         if (response.status === 404) {
           return null;
         }
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || 'Failed to fetch product');
+        const errorText = await response.text();
+        let errorData;
+        try {
+          errorData = JSON.parse(errorText);
+        } catch {
+          errorData = { message: errorText };
+        }
+        throw new Error(errorData.message || `API 호출 실패 (${response.status})`);
       }
 
       const data = await response.json();
-      return data;
+      return data.product || data;
     } catch (error) {
       console.error('Get product error:', error);
+      if (error instanceof Error) {
+        throw error;
+      }
       throw new Error('상품 조회에 실패했습니다.');
     }
   }

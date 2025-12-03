@@ -25,56 +25,57 @@ export async function POST(req: Request) {
     }
 
     // 네이버 커머스 API 테스트 호출
-    // 주의: 실제 네이버 커머스 API 엔드포인트는 네이버 문서를 참고하세요
-    // 여기서는 간단한 인증 테스트만 수행합니다
+    // API Gateway 방식으로 상품 목록 조회 테스트
     
     try {
-      // 네이버 커머스 API는 OAuth 2.0을 사용합니다
-      // 1. Access Token 발급 테스트
-      const tokenResponse = await fetch('https://api.commerce.naver.com/external/v1/oauth2/token', {
-        method: 'POST',
+      // 네이버 커머스 API - 상품 목록 조회로 연결 테스트
+      const apiResponse = await fetch('https://api.commerce.naver.com/external/v1/products', {
+        method: 'GET',
         headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
+          'Content-Type': 'application/json',
+          'X-NCP-APIGW-API-KEY-ID': clientId,
+          'X-NCP-APIGW-API-KEY': clientSecret,
         },
-        body: new URLSearchParams({
-          client_id: clientId,
-          client_secret: clientSecret,
-          grant_type: 'client_credentials',
-          type: 'SELF',
-        }),
       });
 
-      if (!tokenResponse.ok) {
-        const errorData = await tokenResponse.json().catch(() => ({}));
+      if (!apiResponse.ok) {
+        const errorText = await apiResponse.text();
+        let errorData;
+        try {
+          errorData = JSON.parse(errorText);
+        } catch {
+          errorData = { message: errorText };
+        }
+        
+        console.error('Naver API error:', apiResponse.status, errorData);
         
         // 일반적인 오류 처리
-        if (tokenResponse.status === 401) {
+        if (apiResponse.status === 401 || apiResponse.status === 403) {
           return NextResponse.json(
-            { error: 'Client ID 또는 Client Secret이 올바르지 않습니다.' },
+            { error: '애플리케이션 ID 또는 시크릿 키가 올바르지 않습니다. 입력한 값을 다시 확인해주세요.' },
             { status: 400 }
           );
         }
         
-        if (tokenResponse.status === 403) {
+        if (apiResponse.status === 404) {
           return NextResponse.json(
-            { error: 'API 사용 권한이 없습니다. 네이버 커머스 API 신청이 승인되었는지 확인해주세요.' },
+            { error: 'API 엔드포인트를 찾을 수 없습니다. 네이버 커머스 API 센터에서 상품 API가 활성화되었는지 확인해주세요.' },
             { status: 400 }
           );
         }
 
-        throw new Error(errorData.message || 'API 호출에 실패했습니다.');
+        throw new Error(errorData.message || `API 호출 실패 (${apiResponse.status})`);
       }
 
-      const tokenData = await tokenResponse.json();
+      const data = await apiResponse.json();
+      
+      // 상품 데이터 확인
+      const productCount = data.products ? data.products.length : 0;
 
-      if (tokenData.access_token) {
-        return NextResponse.json({
-          ok: true,
-          message: 'API 연결 테스트에 성공했습니다!',
-        });
-      }
-
-      throw new Error('Access Token을 받지 못했습니다.');
+      return NextResponse.json({
+        ok: true,
+        message: `API 연결 테스트에 성공했습니다! (상품 ${productCount}개 조회됨)`,
+      });
       
     } catch (apiError: any) {
       console.error('Naver API test error:', apiError);
