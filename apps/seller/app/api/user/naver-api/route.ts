@@ -20,24 +20,28 @@ export async function PUT(req: Request) {
     const { naverClientId, naverClientSecret, naverApiEnabled } = body;
 
     // 필수 필드 검증
-    if (!naverClientId || !naverClientSecret) {
+    if (!naverClientId) {
       return NextResponse.json(
-        { error: 'Client ID와 Client Secret은 필수입니다.' },
+        { error: '애플리케이션 ID는 필수입니다.' },
         { status: 400 }
       );
     }
 
-    // Client Secret 암호화
-    const encryptedSecret = encrypt(naverClientSecret);
+    // 업데이트할 데이터 준비
+    const updateData: any = {
+      naverClientId: naverClientId.trim(),
+      naverApiEnabled: naverApiEnabled || false,
+    };
+
+    // Client Secret이 제공된 경우에만 암호화해서 저장 (마스킹된 값이 아닌 경우)
+    if (naverClientSecret && naverClientSecret.trim()) {
+      updateData.naverClientSecret = encrypt(naverClientSecret);
+    }
 
     // 설정 저장
     const updatedUser = await prisma.user.update({
       where: { id: session.user.id },
-      data: {
-        naverClientId: naverClientId.trim(),
-        naverClientSecret: encryptedSecret,
-        naverApiEnabled: naverApiEnabled || false,
-      },
+      data: updateData,
       select: {
         id: true,
         naverClientId: true,

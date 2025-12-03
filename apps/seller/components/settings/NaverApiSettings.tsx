@@ -46,12 +46,21 @@ export default function NaverApiSettings() {
     setMessage({ type: '', text: '' });
 
     try {
+      // 마스킹된 값이면 제외 (기존 값 유지)
+      const dataToSend = {
+        naverClientId: formData.naverClientId,
+        naverClientSecret: formData.naverClientSecret.includes('•') 
+          ? undefined 
+          : formData.naverClientSecret,
+        naverApiEnabled: formData.naverApiEnabled,
+      };
+
       const response = await fetch('/api/user/naver-api', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(dataToSend),
       });
 
       const data = await response.json();
@@ -229,11 +238,15 @@ export default function NaverApiSettings() {
                 setFormData({ ...formData, naverClientSecret: e.target.value })
               }
               className="w-full pl-10 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-white/40 focus:outline-none focus:border-brand-neon/50 transition-colors font-mono text-sm"
-              placeholder="$2a$ 로 시작하는 시크릿 키"
+              placeholder={formData.naverClientSecret.includes('•') 
+                ? "기존 값 유지 (변경하려면 새 시크릿 입력)" 
+                : "$2a$ 로 시작하는 시크릿 키"}
             />
           </div>
           <p className="mt-1 text-xs text-white/50">
-            애플리케이션 시크릿은 암호화되어 안전하게 저장됩니다
+            {formData.naverClientSecret.includes('•') 
+              ? "기존 시크릿이 저장되어 있습니다. 변경하려면 새 값을 입력하세요."
+              : "애플리케이션 시크릿은 암호화되어 안전하게 저장됩니다"}
           </p>
         </div>
 
