@@ -2,6 +2,7 @@
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@gconnect/db';
+import { decrypt } from '@/lib/crypto';
 
 // 프로필 조회
 export async function GET() {
@@ -44,10 +45,22 @@ export async function GET() {
       );
     }
 
-    // naverClientSecret 마스킹 처리
+    // naverClientSecret 마스킹 처리 (복호화 가능한지 확인)
+    let maskedSecret = null;
+    if (user.naverClientSecret) {
+      try {
+        const decrypted = decrypt(user.naverClientSecret);
+        // 복호화 성공 시에만 마스킹 표시
+        maskedSecret = decrypted ? '••••••••••••••••' : null;
+      } catch (error) {
+        console.error('Failed to decrypt secret in profile:', error);
+        maskedSecret = null;
+      }
+    }
+
     const maskedUser = {
       ...user,
-      naverClientSecret: user.naverClientSecret ? '••••••••••••••••' : null,
+      naverClientSecret: maskedSecret,
     };
 
     return NextResponse.json(maskedUser);

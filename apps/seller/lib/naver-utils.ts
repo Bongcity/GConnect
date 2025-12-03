@@ -21,6 +21,12 @@ export async function getDecryptedNaverApiKey(userId: string): Promise<{
 
     const decryptedSecret = decrypt(user.naverClientSecret);
 
+    // 복호화 실패 시 (잘못된 암호화 값)
+    if (!decryptedSecret || decryptedSecret.trim() === '') {
+      console.error('Failed to decrypt naver client secret');
+      return null;
+    }
+
     return {
       clientId: user.naverClientId,
       clientSecret: decryptedSecret,

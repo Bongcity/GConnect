@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@gconnect/db';
-import { encrypt } from '@/lib/crypto';
+import { encrypt, decrypt } from '@/lib/crypto';
 
 // 네이버 API 설정 저장
 export async function PUT(req: Request) {
@@ -91,10 +91,18 @@ export async function GET() {
       );
     }
 
-    // Secret은 마스킹 처리
-    const maskedSecret = user.naverClientSecret
-      ? '••••••••••••••••'
-      : '';
+    // Secret은 마스킹 처리 (복호화 가능한지 확인)
+    let maskedSecret = '';
+    if (user.naverClientSecret) {
+      try {
+        const decrypted = decrypt(user.naverClientSecret);
+        // 복호화 성공 시에만 마스킹 표시
+        maskedSecret = decrypted ? '••••••••••••••••' : '';
+      } catch (error) {
+        console.error('Failed to decrypt secret:', error);
+        maskedSecret = '';
+      }
+    }
 
     return NextResponse.json({
       naverClientId: user.naverClientId || '',
