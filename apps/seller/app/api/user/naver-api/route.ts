@@ -33,9 +33,16 @@ export async function PUT(req: Request) {
       naverApiEnabled: naverApiEnabled || false,
     };
 
-    // Client Secret이 제공된 경우에만 암호화해서 저장 (마스킹된 값이 아닌 경우)
+    // Client Secret이 제공된 경우에만 암호화해서 저장
+    // 마스킹된 값(•로 시작)은 저장하지 않음
     if (naverClientSecret && naverClientSecret.trim()) {
-      updateData.naverClientSecret = encrypt(naverClientSecret);
+      // 마스킹 문자 체크 (•, *, -, _ 등)
+      const isMasked = /^[•*\-_]+$/.test(naverClientSecret.trim());
+      
+      if (!isMasked) {
+        updateData.naverClientSecret = encrypt(naverClientSecret.trim());
+      }
+      // 마스킹된 값인 경우 기존 값 유지 (updateData에 포함하지 않음)
     }
 
     // 설정 저장

@@ -86,6 +86,15 @@ export default function NaverApiSettings() {
       return;
     }
 
+    // 마스킹된 값 체크
+    if (formData.naverClientSecret.includes('•')) {
+      setTestResult({
+        success: false,
+        message: '실제 Client Secret을 입력해주세요. 마스킹된 값(•••)으로는 테스트할 수 없습니다.',
+      });
+      return;
+    }
+
     setIsTesting(true);
     setTestResult(null);
 
@@ -96,8 +105,8 @@ export default function NaverApiSettings() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          clientId: formData.naverClientId,
-          clientSecret: formData.naverClientSecret,
+          clientId: formData.naverClientId.trim(),
+          clientSecret: formData.naverClientSecret.trim(),
         }),
       });
 
@@ -281,6 +290,12 @@ export default function NaverApiSettings() {
             <input
               type="password"
               value={formData.naverClientSecret}
+              onFocus={(e) => {
+                // 마스킹된 값이면 자동으로 지움
+                if (formData.naverClientSecret.includes('•')) {
+                  setFormData({ ...formData, naverClientSecret: '' });
+                }
+              }}
               onChange={(e) =>
                 setFormData({ ...formData, naverClientSecret: e.target.value })
               }
