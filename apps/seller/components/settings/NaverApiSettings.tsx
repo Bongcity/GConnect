@@ -159,8 +159,8 @@ export default function NaverApiSettings() {
           <li>
             <strong className="text-white">커머스 API 센터 접속</strong>
             <br />
-            <a href="https://commerce.naver.com/commerce-apis" target="_blank" rel="noopener noreferrer" className="text-brand-neon hover:underline">
-              commerce.naver.com/commerce-apis
+            <a href="https://apicenter.commerce.naver.com" target="_blank" rel="noopener noreferrer" className="text-brand-neon hover:underline">
+              apicenter.commerce.naver.com
             </a> 또는 스마트스토어센터 &gt; 스토어관리 &gt; API 관리
           </li>
           <li>

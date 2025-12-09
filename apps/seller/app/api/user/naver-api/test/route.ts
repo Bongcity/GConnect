@@ -25,13 +25,72 @@ export async function POST(req: Request) {
     }
 
     // 네이버 커머스 API 테스트 호출
-    // NCP API Gateway 방식으로 상품 목록 조회 테스트
+    // OAuth 2.0 방식으로 토큰 발급 후 API 테스트
     
     try {
       console.log('🔍 네이버 커머스 API 연결 테스트 시작...');
       console.log(`   Client ID: ${clientId.substring(0, 10)}...`);
       
-      // 여러 엔드포인트 시도
+      // 1단계: OAuth 2.0 토큰 발급
+      console.log('🔑 OAuth 2.0 액세스 토큰 발급 중...');
+      let accessToken = '';
+      
+      try {
+        const tokenResponse = await fetch(
+          'https://api.commerce.naver.com/external/v1/oauth2/token',
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: new URLSearchParams({
+              client_id: clientId,
+              client_secret: clientSecret,
+              grant_type: 'client_credentials',
+            }),
+          }
+        );
+
+        if (!tokenResponse.ok) {
+          const errorText = await tokenResponse.text();
+          let errorData;
+          try {
+            errorData = JSON.parse(errorText);
+          } catch {
+            errorData = { message: errorText };
+          }
+          console.error('❌ 토큰 발급 실패:', tokenResponse.status, errorData);
+          
+          return NextResponse.json(
+            { 
+              error: '토큰 발급에 실패했습니다.',
+              details: `상태 코드: ${tokenResponse.status}`,
+              hint: '애플리케이션 ID와 시크릿을 다시 확인해주세요.\n' +
+                    '1. 애플리케이션 ID가 정확한지 확인\n' +
+                    '2. 애플리케이션 시크릿이 정확한지 확인 (공백 제거)\n' +
+                    '3. 커머스 API 센터에서 API 사용 승인 여부 확인',
+              response: errorData
+            },
+            { status: 400 }
+          );
+        }
+
+        const tokenData = await tokenResponse.json();
+        accessToken = tokenData.access_token;
+        console.log('✅ 액세스 토큰 발급 성공!');
+      } catch (tokenError: any) {
+        console.error('❌ 토큰 발급 오류:', tokenError);
+        return NextResponse.json(
+          { 
+            error: '토큰 발급 중 오류가 발생했습니다.',
+            details: tokenError.message || String(tokenError),
+          },
+          { status: 500 }
+        );
+      }
+      
+      // 2단계: 발급받은 토큰으로 API 테스트
+      console.log('🔍 API 엔드포인트 테스트 중...');
       const endpoints = [
         'https://api.commerce.naver.com/external/v1/products?page=1&size=1',
         'https://api.commerce.naver.com/external/v2/products?page=1&size=1',
@@ -50,8 +109,7 @@ export async function POST(req: Request) {
             method: 'GET',
             headers: {
               'Content-Type': 'application/json',
-              'X-NCP-APIGW-API-KEY-ID': clientId,
-              'X-NCP-APIGW-API-KEY': clientSecret,
+              'Authorization': `Bearer ${accessToken}`,
             },
           });
 
@@ -110,10 +168,10 @@ export async function POST(req: Request) {
             { 
               error: '애플리케이션 ID 또는 시크릿 키가 올바르지 않습니다.',
               details: `상태 코드: ${authError?.status}`,
-              hint: '네이버 커머스 API 센터에서 키 정보를 다시 확인해주세요.\n' +
-                    '1. 애플리케이션 ID와 시크릿이 정확한지 확인\n' +
-                    '2. API 사용 승인이 완료되었는지 확인\n' +
-                    '3. 서버 IP가 등록되어 있는지 확인',
+              hint: '네이버 커머스 API 센터에서 설정을 확인해주세요.\n' +
+                    '1. API 사용 승인이 완료되었는지 확인\n' +
+                    '2. 서버 IP가 등록되어 있는지 확인\n' +
+                    '3. "상품" API가 활성화되어 있는지 확인',
               failedAttempts: failedAttempts
             },
             { status: 400 }
@@ -127,9 +185,9 @@ export async function POST(req: Request) {
               details: '모든 엔드포인트에서 404 오류가 발생했습니다.',
               hint: '다음 사항을 확인해주세요:\n' +
                     '1. 네이버 커머스 API 센터에서 "상품" API가 승인되었는지 확인\n' +
-                    '2. API 타입이 올바른지 확인 (NCP API Gateway 방식)\n' +
-                    '3. 네이버 개발자 센터에서 최신 API 문서 확인\n' +
-                    '4. 스마트스토어 센터에서 API 연동 상태 확인',
+                    '2. 서버 IP가 등록되어 있는지 확인\n' +
+                    '3. 스마트스토어 센터에서 API 연동 상태 확인\n' +
+                    '4. 상품이 등록되어 있는지 확인 (상품이 없으면 404 반환)',
               testedEndpoints: endpoints,
               failedAttempts: failedAttempts
             },
@@ -160,7 +218,7 @@ export async function POST(req: Request) {
         successEndpoint: successEndpoint,
         productCount: productCount,
         dataKeys: Object.keys(data),
-        authMethod: 'NCP API Gateway'
+        authMethod: 'OAuth 2.0'
       });
       
     } catch (apiError: any) {

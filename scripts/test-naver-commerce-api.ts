@@ -33,7 +33,6 @@ async function getAccessToken(): Promise<string> {
       client_id: NAVER_COMMERCE_CONFIG.applicationId,
       client_secret: NAVER_COMMERCE_CONFIG.applicationSecret,
       grant_type: 'client_credentials',
-      type: 'SELF',
     }),
   });
 
