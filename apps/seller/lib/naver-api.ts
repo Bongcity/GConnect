@@ -59,6 +59,17 @@ export class NaverApiClient {
     }
 
     try {
+      // bcrypt 전자서명 생성
+      const bcrypt = await import('bcryptjs');
+      const timestamp = Date.now().toString();
+      const password = `${this.clientId}_${timestamp}`;
+      
+      // bcrypt 해싱 (salt로 client_secret 사용)
+      const hashed = bcrypt.hashSync(password, this.clientSecret);
+      
+      // Base64 인코딩
+      const clientSecretSign = Buffer.from(hashed).toString('base64');
+      
       const response = await fetch(
         'https://api.commerce.naver.com/external/v1/oauth2/token',
         {
@@ -68,8 +79,10 @@ export class NaverApiClient {
           },
           body: new URLSearchParams({
             client_id: this.clientId,
-            client_secret: this.clientSecret,
+            timestamp: timestamp,
+            client_secret_sign: clientSecretSign,
             grant_type: 'client_credentials',
+            type: 'SELF',
           }),
         }
       );

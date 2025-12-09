@@ -31,11 +31,27 @@ export async function POST(req: Request) {
       console.log('🔍 네이버 커머스 API 연결 테스트 시작...');
       console.log(`   Client ID: ${clientId.substring(0, 10)}...`);
       
-      // 1단계: OAuth 2.0 토큰 발급
+      // 1단계: OAuth 2.0 토큰 발급 (bcrypt 전자서명 방식)
       console.log('🔑 OAuth 2.0 액세스 토큰 발급 중...');
       let accessToken = '';
       
       try {
+        // bcrypt 전자서명 생성
+        const bcrypt = await import('bcryptjs');
+        const timestamp = Date.now().toString();
+        const password = `${clientId}_${timestamp}`;
+        
+        console.log(`   timestamp: ${timestamp}`);
+        console.log(`   password: ${password.substring(0, 30)}...`);
+        
+        // bcrypt 해싱 (salt로 client_secret 사용)
+        const hashed = bcrypt.hashSync(password, clientSecret);
+        
+        // Base64 인코딩
+        const clientSecretSign = Buffer.from(hashed).toString('base64');
+        
+        console.log(`   client_secret_sign: ${clientSecretSign.substring(0, 30)}...`);
+        
         const tokenResponse = await fetch(
           'https://api.commerce.naver.com/external/v1/oauth2/token',
           {
@@ -45,8 +61,10 @@ export async function POST(req: Request) {
             },
             body: new URLSearchParams({
               client_id: clientId,
-              client_secret: clientSecret,
+              timestamp: timestamp,
+              client_secret_sign: clientSecretSign,
               grant_type: 'client_credentials',
+              type: 'SELF',
             }),
           }
         );

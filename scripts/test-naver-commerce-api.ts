@@ -14,7 +14,7 @@ let accessToken: string | null = null;
 let tokenExpiry: number | null = null;
 
 /**
- * OAuth 2.0 Access Token 발급
+ * OAuth 2.0 Access Token 발급 (bcrypt 전자서명 방식)
  */
 async function getAccessToken(): Promise<string> {
   // 토큰이 유효하면 재사용
@@ -22,7 +22,22 @@ async function getAccessToken(): Promise<string> {
     return accessToken;
   }
 
-  console.log('🔐 OAuth 2.0 Access Token 발급 중...');
+  console.log('🔐 OAuth 2.0 Access Token 발급 중 (bcrypt 전자서명)...');
+  
+  // bcrypt 전자서명 생성
+  const bcrypt = await import('bcryptjs');
+  const timestamp = Date.now().toString();
+  const password = `${NAVER_COMMERCE_CONFIG.applicationId}_${timestamp}`;
+  
+  console.log(`   timestamp: ${timestamp}`);
+  
+  // bcrypt 해싱 (salt로 client_secret 사용)
+  const hashed = bcrypt.hashSync(password, NAVER_COMMERCE_CONFIG.applicationSecret);
+  
+  // Base64 인코딩
+  const clientSecretSign = Buffer.from(hashed).toString('base64');
+  
+  console.log(`   전자서명 생성 완료`);
   
   const response = await fetch('https://api.commerce.naver.com/external/v1/oauth2/token', {
     method: 'POST',
@@ -31,8 +46,10 @@ async function getAccessToken(): Promise<string> {
     },
     body: new URLSearchParams({
       client_id: NAVER_COMMERCE_CONFIG.applicationId,
-      client_secret: NAVER_COMMERCE_CONFIG.applicationSecret,
+      timestamp: timestamp,
+      client_secret_sign: clientSecretSign,
       grant_type: 'client_credentials',
+      type: 'SELF',
     }),
   });
 
