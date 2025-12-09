@@ -86,19 +86,15 @@ export default function NaverApiSettings() {
       return;
     }
 
-    // 마스킹된 값 체크
-    if (formData.naverClientSecret.includes('•')) {
-      setTestResult({
-        success: false,
-        message: '실제 Client Secret을 입력해주세요. 마스킹된 값(•••)으로는 테스트할 수 없습니다.',
-      });
-      return;
-    }
-
     setIsTesting(true);
     setTestResult(null);
 
     try {
+      // 마스킹된 시크릿이면 빈 값으로 보내기 (서버에서 DB 값 사용)
+      const secretToSend = formData.naverClientSecret.includes('•') 
+        ? '' 
+        : formData.naverClientSecret.trim();
+      
       const response = await fetch('/api/user/naver-api/test', {
         method: 'POST',
         headers: {
@@ -106,7 +102,7 @@ export default function NaverApiSettings() {
         },
         body: JSON.stringify({
           clientId: formData.naverClientId.trim(),
-          clientSecret: formData.naverClientSecret.trim(),
+          clientSecret: secretToSend,
         }),
       });
 

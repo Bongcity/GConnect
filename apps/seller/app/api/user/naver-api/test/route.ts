@@ -15,13 +15,30 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const { clientId, clientSecret } = body;
+    let { clientId, clientSecret } = body;
 
-    if (!clientId || !clientSecret) {
+    if (!clientId) {
       return NextResponse.json(
-        { error: 'Client ID와 Client Secret을 입력해주세요.' },
+        { error: 'Client ID를 입력해주세요.' },
         { status: 400 }
       );
+    }
+
+    // clientSecret이 없으면 DB에서 불러오기
+    if (!clientSecret || clientSecret.trim() === '') {
+      console.log('🔑 DB에서 저장된 Client Secret 불러오는 중...');
+      const { getDecryptedNaverApiKey } = await import('@/lib/naver-utils');
+      const naverApiKey = await getDecryptedNaverApiKey(session.user.id);
+      
+      if (!naverApiKey || !naverApiKey.clientSecret) {
+        return NextResponse.json(
+          { error: '저장된 Client Secret이 없습니다. 먼저 설정을 저장해주세요.' },
+          { status: 400 }
+        );
+      }
+      
+      clientSecret = naverApiKey.clientSecret;
+      console.log('✅ DB에서 Client Secret 불러오기 성공');
     }
 
     // 네이버 커머스 API 테스트 호출
