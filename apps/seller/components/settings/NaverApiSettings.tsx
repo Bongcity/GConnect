@@ -144,16 +144,63 @@ export default function NaverApiSettings() {
       {/* 안내 카드 */}
       <div className="mb-6 p-4 rounded-xl bg-blue-500/10 border border-blue-500/20">
         <h3 className="text-sm font-semibold text-white mb-2">
-          📌 네이버 커머스 API 신청 방법
+          📌 네이버 커머스 API 신청 및 설정 방법
         </h3>
-        <ol className="text-xs text-white/70 space-y-1 ml-4 list-decimal">
-          <li>네이버 커머스 API 센터 접속: <a href="https://api.commerce.naver.com" target="_blank" rel="noopener noreferrer" className="text-brand-neon hover:underline">api.commerce.naver.com</a></li>
-          <li>스마트스토어 관리자 계정으로 로그인</li>
-          <li>&apos;내 스토어 애플리케이션 선택&apos; 메뉴에서 신규 생성</li>
-          <li>설명 선택: &apos;상품&apos; (키친메이커)</li>
-          <li>&apos;애플리케이션 ID&apos;와 &apos;애플리케이션 시크릿&apos; 복사하여 아래에 입력</li>
-          <li>API호출 IP: 현재 서버 IP가 자동 등록되어 있어야 합니다</li>
+        <ol className="text-xs text-white/70 space-y-2 ml-4 list-decimal">
+          <li>
+            <strong className="text-white">커머스 API 센터 접속</strong>
+            <br />
+            <a href="https://commerce.naver.com/commerce-apis" target="_blank" rel="noopener noreferrer" className="text-brand-neon hover:underline">
+              commerce.naver.com/commerce-apis
+            </a> 또는 스마트스토어센터 &gt; 스토어관리 &gt; API 관리
+          </li>
+          <li>
+            <strong className="text-white">애플리케이션 생성</strong>
+            <br />
+            &apos;내 스토어 애플리케이션 선택&apos; 메뉴에서 신규 생성
+          </li>
+          <li>
+            <strong className="text-white">API 타입 선택</strong>
+            <br />
+            &apos;상품&apos; API 선택 (상품 조회 및 관리를 위해 필요)
+          </li>
+          <li>
+            <strong className="text-white">API 키 복사</strong>
+            <br />
+            &apos;애플리케이션 ID&apos;와 &apos;애플리케이션 시크릿&apos; 복사하여 아래에 입력
+          </li>
+          <li>
+            <strong className="text-white">⚠️ API호출 IP 등록 (중요)</strong>
+            <br />
+            커머스 API 센터에서 서버 IP 주소를 등록해야 합니다.
+            <br />
+            미등록 시 API 호출이 거부됩니다.
+          </li>
         </ol>
+      </div>
+
+      {/* 추가 안내 - 문제 해결 */}
+      <div className="mb-6 p-4 rounded-xl bg-yellow-500/10 border border-yellow-500/20">
+        <h3 className="text-sm font-semibold text-white mb-2">
+          ⚠️ API 연결이 안 될 때 체크리스트
+        </h3>
+        <ul className="text-xs text-white/70 space-y-1 ml-4 list-disc">
+          <li>커머스 API 센터에서 애플리케이션이 &apos;승인됨&apos; 상태인지 확인</li>
+          <li>API호출 IP가 올바르게 등록되어 있는지 확인</li>
+          <li>애플리케이션 ID와 시크릿이 정확한지 확인 (공백 제거)</li>
+          <li>&apos;상품&apos; API가 활성화되어 있는지 확인</li>
+          <li>스마트스토어 판매자 계정 상태가 정상인지 확인</li>
+        </ul>
+        <div className="mt-3 text-xs">
+          <a 
+            href="https://help.sell.smartstore.naver.com/faq/search.help?categoryNo=0&searchKeyword=api" 
+            target="_blank" 
+            rel="noopener noreferrer" 
+            className="text-brand-neon hover:underline"
+          >
+            📚 네이버 스마트스토어 API FAQ 보기 →
+          </a>
+        </div>
       </div>
 
       {/* 메시지 */}

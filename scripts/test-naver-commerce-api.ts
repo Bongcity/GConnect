@@ -10,14 +10,60 @@ const NAVER_COMMERCE_CONFIG = {
   baseUrl: 'https://api.commerce.naver.com',
 };
 
+let accessToken: string | null = null;
+let tokenExpiry: number | null = null;
+
 /**
- * 네이버 커머스 API 호출을 위한 인증 헤더 생성
+ * OAuth 2.0 Access Token 발급
  */
-function getAuthHeaders(): HeadersInit {
+async function getAccessToken(): Promise<string> {
+  // 토큰이 유효하면 재사용
+  if (accessToken && tokenExpiry && Date.now() < tokenExpiry) {
+    return accessToken;
+  }
+
+  console.log('🔐 OAuth 2.0 Access Token 발급 중...');
+  
+  const response = await fetch('https://api.commerce.naver.com/external/v1/oauth2/token', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: new URLSearchParams({
+      client_id: NAVER_COMMERCE_CONFIG.applicationId,
+      client_secret: NAVER_COMMERCE_CONFIG.applicationSecret,
+      grant_type: 'client_credentials',
+      type: 'SELF',
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('❌ Token 발급 실패:', response.status, errorText);
+    throw new Error(`Token 발급 실패 (${response.status})`);
+  }
+
+  const data = await response.json();
+  
+  if (!data.access_token) {
+    throw new Error('Access Token이 응답에 포함되지 않았습니다.');
+  }
+
+  accessToken = data.access_token;
+  tokenExpiry = Date.now() + (data.expires_in ? data.expires_in * 1000 - 600000 : 3000000);
+  
+  console.log('✅ Access Token 발급 성공!');
+  return accessToken;
+}
+
+/**
+ * OAuth 2.0 방식의 인증 헤더 생성
+ */
+async function getAuthHeaders(): Promise<HeadersInit> {
+  const token = await getAccessToken();
   return {
     'Content-Type': 'application/json',
-    'X-NCP-APIGW-API-KEY-ID': NAVER_COMMERCE_CONFIG.applicationId,
-    'X-NCP-APIGW-API-KEY': NAVER_COMMERCE_CONFIG.applicationSecret,
+    'Authorization': `Bearer ${token}`,
   };
 }
 
@@ -28,17 +74,19 @@ async function testGetProducts() {
   console.log('🔍 네이버 커머스 API - 상품 목록 조회 테스트 시작...\n');
 
   try {
-    const url = `${NAVER_COMMERCE_CONFIG.baseUrl}/external/v1/products`;
+    const url = `${NAVER_COMMERCE_CONFIG.baseUrl}/external/v1/products?page=1&size=10`;
     
     console.log('📡 API 호출 정보:');
     console.log('- URL:', url);
     console.log('- Application ID:', NAVER_COMMERCE_CONFIG.applicationId);
     console.log('- IP:', '211.195.9.70');
+    console.log('- 인증 방식: OAuth 2.0');
     console.log('\n');
 
+    const headers = await getAuthHeaders();
     const response = await fetch(url, {
       method: 'GET',
-      headers: getAuthHeaders(),
+      headers: headers,
     });
 
     console.log('📥 응답 상태:', response.status, response.statusText);
@@ -91,9 +139,10 @@ async function testGetProductById(productId: string) {
     
     console.log('📡 API 호출:', url);
 
+    const headers = await getAuthHeaders();
     const response = await fetch(url, {
       method: 'GET',
-      headers: getAuthHeaders(),
+      headers: headers,
     });
 
     console.log('📥 응답 상태:', response.status, response.statusText);
@@ -133,9 +182,10 @@ async function testApiEndpoints() {
     
     try {
       const url = `${NAVER_COMMERCE_CONFIG.baseUrl}${endpoint.path}`;
+      const headers = await getAuthHeaders();
       const response = await fetch(url, {
         method: 'GET',
-        headers: getAuthHeaders(),
+        headers: headers,
       });
 
       console.log(`   ✅ 상태: ${response.status} ${response.statusText}`);

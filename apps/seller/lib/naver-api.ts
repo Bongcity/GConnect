@@ -42,7 +42,7 @@ export class NaverApiClient {
   }
 
   /**
-   * API Gateway 방식의 공통 헤더 생성
+   * NCP API Gateway 방식의 공통 헤더 생성
    */
   private getHeaders(): HeadersInit {
     return {
