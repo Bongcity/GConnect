@@ -7,7 +7,7 @@
  * ⚠️ DDRo 기준 구조 적용 (snake_case → camelCase 변환)
  */
 
-import type { Product } from '@gconnect/db';
+import type { Product, ProductDetail } from '@gconnect/db';
 import type { AffiliateProduct } from '@gconnect/db';
 
 // ============================================
@@ -86,6 +86,31 @@ export interface UnifiedProduct {
   
   // SELLER 전용 (User 정보)
   userId?: string;
+  
+  // 상세 정보 (ProductDetail)
+  detail?: {
+    statusType: string | null;
+    displayStatus: string | null;
+    originalPrice: number | null;
+    discountRate: number | null;
+    mobileDiscountedPrice: number | null;
+    deliveryAttributeType: string | null;
+    deliveryFee: number | null;
+    returnFee: number | null;
+    exchangeFee: number | null;
+    sellerPurchasePoint: number | null;
+    sellerPurchasePointUnit: string | null;
+    managerPurchasePoint: number | null;
+    textReviewPoint: number | null;
+    photoVideoReviewPoint: number | null;
+    regularCustomerPoint: number | null;
+    freeInterest: number | null;
+    gift: string | null;
+    wholeCategoryName: string | null;
+    brandName: string | null;
+    manufacturerName: string | null;
+    knowledgeShoppingRegistration: boolean | null;
+  };
 }
 
 // ============================================
@@ -98,14 +123,19 @@ export interface UnifiedProduct {
  * GCONNECT DB의 Products 테이블은 DDRo와 동일한 snake_case 구조를 사용
  */
 export function transformSellerProduct(
-  product: Product & { user?: { shopName: string | null } | null }
+  product: Product & { 
+    user?: { shopName: string | null } | null;
+    productDetail?: ProductDetail | null;
+  }
 ): UnifiedProduct {
+  const detail = product.productDetail;
+  
   return {
     id: `SELLER_${product.id}`,
     source: 'SELLER',
     
     // 상점 정보
-    storeName: product.store_name,
+    storeName: product.store_name || detail?.brand_name || product.user?.shopName,
     brandStore: product.brand_store,
     storeStatus: product.store_status,
     
@@ -139,8 +169,8 @@ export function transformSellerProduct(
     // 상태
     enabled: product.enabled ?? true,
     
-    // 카테고리 정보 (SELLER는 아직 미구현)
-    sourceCategoryName: null,
+    // 카테고리 정보 (ProductDetail에서 가져오기)
+    sourceCategoryName: detail?.whole_category_name || null,
     
     // 수집 메타 정보
     sourceKeyword: product.source_keyword,
@@ -154,6 +184,31 @@ export function transformSellerProduct(
     
     // SELLER 전용
     userId: product.userId,
+    
+    // 상세 정보 (ProductDetail)
+    detail: detail ? {
+      statusType: detail.status_type,
+      displayStatus: detail.display_status,
+      originalPrice: detail.original_price ? Number(detail.original_price) : null,
+      discountRate: detail.discount_rate,
+      mobileDiscountedPrice: detail.mobile_discounted_price ? Number(detail.mobile_discounted_price) : null,
+      deliveryAttributeType: detail.delivery_attribute_type,
+      deliveryFee: detail.delivery_fee ? Number(detail.delivery_fee) : null,
+      returnFee: detail.return_fee ? Number(detail.return_fee) : null,
+      exchangeFee: detail.exchange_fee ? Number(detail.exchange_fee) : null,
+      sellerPurchasePoint: detail.seller_purchase_point,
+      sellerPurchasePointUnit: detail.seller_purchase_point_unit,
+      managerPurchasePoint: detail.manager_purchase_point,
+      textReviewPoint: detail.text_review_point,
+      photoVideoReviewPoint: detail.photo_video_review_point,
+      regularCustomerPoint: detail.regular_customer_point,
+      freeInterest: detail.free_interest,
+      gift: detail.gift,
+      wholeCategoryName: detail.whole_category_name,
+      brandName: detail.brand_name,
+      manufacturerName: detail.manufacturer_name,
+      knowledgeShoppingRegistration: detail.knowledge_shopping_registration,
+    } : undefined,
   };
 }
 

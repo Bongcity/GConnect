@@ -208,7 +208,12 @@ export default function ProductDetail({ product, relatedProducts = [] }: Product
                   <h3 className="font-semibold text-lg">최대 적립 포인트</h3>
                   <div className="text-right">
                     <div className="text-2xl font-bold text-brand-neon">
-                      {Math.floor(finalPrice * 0.01).toLocaleString()}원
+                      {(() => {
+                        const basePoint = product.detail?.sellerPurchasePoint || Math.floor(finalPrice * 0.001);
+                        const nMembershipPoint = Math.floor(finalPrice * 0.005);
+                        const nPayPoint = Math.floor(finalPrice * 0.004);
+                        return (basePoint + nMembershipPoint + nPayPoint).toLocaleString();
+                      })()}원
                     </div>
                     <button className="text-xs text-white/60 hover:text-white/80 mt-1">
                       ⓘ
@@ -219,7 +224,9 @@ export default function ProductDetail({ product, relatedProducts = [] }: Product
                 <div className="space-y-2 text-sm">
                   <div className="flex items-center justify-between py-2 border-b border-white/5">
                     <span className="text-white/60">기본적립</span>
-                    <span className="text-white/90">{Math.floor(finalPrice * 0.001).toLocaleString()}원</span>
+                    <span className="text-white/90">
+                      {(product.detail?.sellerPurchasePoint || Math.floor(finalPrice * 0.001)).toLocaleString()}원
+                    </span>
                   </div>
                   <div className="flex items-center justify-between py-2 border-b border-white/5">
                     <div className="flex items-center gap-2">
@@ -263,9 +270,49 @@ export default function ProductDetail({ product, relatedProducts = [] }: Product
                 <div className="flex items-start gap-4">
                   <span className="text-white/60 min-w-[80px]">카테고리</span>
                   <span className="text-white/90">
-                    {product.sourceCategoryName || product.sourceCid || '-'}
+                    {product.detail?.wholeCategoryName || product.sourceCategoryName || product.sourceCid || '-'}
                   </span>
                 </div>
+                
+                {/* 브랜드 */}
+                {product.detail?.brandName && (
+                  <div className="flex items-start gap-4">
+                    <span className="text-white/60 min-w-[80px]">브랜드</span>
+                    <span className="text-white/90">{product.detail.brandName}</span>
+                  </div>
+                )}
+                
+                {/* 제조사 */}
+                {product.detail?.manufacturerName && (
+                  <div className="flex items-start gap-4">
+                    <span className="text-white/60 min-w-[80px]">제조사</span>
+                    <span className="text-white/90">{product.detail.manufacturerName}</span>
+                  </div>
+                )}
+                
+                {/* 배송비 */}
+                {product.detail?.deliveryFee !== undefined && product.detail?.deliveryFee !== null && (
+                  <div className="flex items-start gap-4">
+                    <span className="text-white/60 min-w-[80px]">배송비</span>
+                    <span className="text-white/90">
+                      {product.detail.deliveryFee === 0 ? '무료배송' : `${product.detail.deliveryFee.toLocaleString()}원`}
+                    </span>
+                  </div>
+                )}
+                
+                {/* 판매상태 */}
+                {product.detail?.statusType && (
+                  <div className="flex items-start gap-4">
+                    <span className="text-white/60 min-w-[80px]">판매상태</span>
+                    <span className={`font-medium ${
+                      product.detail.statusType === 'SALE' ? 'text-brand-neon' : 'text-white/60'
+                    }`}>
+                      {product.detail.statusType === 'SALE' ? '판매중' : 
+                       product.detail.statusType === 'SUSPENSION' ? '판매중지' : 
+                       product.detail.statusType === 'OUTOFSTOCK' ? '품절' : product.detail.statusType}
+                    </span>
+                  </div>
+                )}
                 
                 {/* 키워드 */}
                 {product.sourceKeyword && (
@@ -325,15 +372,63 @@ export default function ProductDetail({ product, relatedProducts = [] }: Product
         <div className="glass-card p-8 mb-16">
           <h2 className="text-2xl font-bold mb-4">배송/교환/반품 안내</h2>
           <div className="space-y-4 text-white/70 text-sm">
-            <p>
-              배송: 네이버 스마트스토어 정책에 따릅니다. (일반적으로 2-3일 소요)
-            </p>
-            <p>
-              교환/반품: 상품 수령 후 7일 이내에 가능합니다. 자세한 내용은 판매자에게 문의해주세요.
-            </p>
-            <p>
-              환불: 상품 회수 확인 후 영업일 기준 3일 이내 처리됩니다.
-            </p>
+            <div className="flex items-start gap-3">
+              <span className="font-medium text-white/90 min-w-[60px]">배송:</span>
+              <div>
+                {product.detail?.deliveryAttributeType === 'TODAY' && (
+                  <span className="inline-block bg-brand-neon text-dark-bg text-xs px-2 py-0.5 rounded font-bold mr-2">
+                    오늘출발
+                  </span>
+                )}
+                {product.detail?.deliveryFee !== undefined && product.detail?.deliveryFee !== null ? (
+                  product.detail.deliveryFee === 0 ? (
+                    <span className="text-brand-neon font-medium">무료배송</span>
+                  ) : (
+                    <span>배송비 {product.detail.deliveryFee.toLocaleString()}원</span>
+                  )
+                ) : (
+                  <span>네이버 스마트스토어 정책에 따릅니다. (일반적으로 2-3일 소요)</span>
+                )}
+              </div>
+            </div>
+            
+            <div className="flex items-start gap-3">
+              <span className="font-medium text-white/90 min-w-[60px]">교환:</span>
+              <span>
+                상품 수령 후 7일 이내 가능
+                {product.detail?.exchangeFee !== undefined && product.detail?.exchangeFee !== null && product.detail.exchangeFee > 0 && (
+                  <span className="text-white/60 ml-2">(교환비: {product.detail.exchangeFee.toLocaleString()}원)</span>
+                )}
+              </span>
+            </div>
+            
+            <div className="flex items-start gap-3">
+              <span className="font-medium text-white/90 min-w-[60px]">반품:</span>
+              <span>
+                상품 수령 후 7일 이내 가능
+                {product.detail?.returnFee !== undefined && product.detail?.returnFee !== null && product.detail.returnFee > 0 && (
+                  <span className="text-white/60 ml-2">(반품비: {product.detail.returnFee.toLocaleString()}원)</span>
+                )}
+              </span>
+            </div>
+            
+            <p>환불: 상품 회수 확인 후 영업일 기준 3일 이내 처리됩니다.</p>
+            
+            {/* 무이자할부 */}
+            {product.detail?.freeInterest && product.detail.freeInterest > 0 && (
+              <div className="flex items-start gap-3 pt-2 border-t border-white/10">
+                <span className="font-medium text-brand-neon min-w-[60px]">혜택:</span>
+                <span className="text-brand-neon">{product.detail.freeInterest}개월 무이자할부</span>
+              </div>
+            )}
+            
+            {/* 사은품 */}
+            {product.detail?.gift && (
+              <div className="flex items-start gap-3">
+                <span className="font-medium text-white/90 min-w-[60px]">사은품:</span>
+                <span className="text-white/90">{product.detail.gift}</span>
+              </div>
+            )}
           </div>
         </div>
 

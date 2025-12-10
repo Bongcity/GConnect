@@ -449,6 +449,7 @@ export async function getProductById(id: string): Promise<UnifiedProduct | null>
               shopName: true,
             },
           },
+          productDetail: true, // ProductDetail 포함
         },
       });
       

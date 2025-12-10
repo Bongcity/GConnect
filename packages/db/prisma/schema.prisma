@@ -313,6 +313,7 @@ model Product {
   
   // 관계
   user                          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productDetail                 ProductDetail?
   
   @@index([userId])
   @@index([source_cid])
@@ -658,6 +659,9 @@ model ProductDetail {
   // 타임스탬프
   created_at                    DateTime? @default(now())
   updated_at                    DateTime? @default(now())
+  
+  // 관계
+  product                       Product   @relation(fields: [product_id], references: [id], onDelete: Cascade)
   
   @@map("affiliate_products_detail")
   @@index([product_id])
