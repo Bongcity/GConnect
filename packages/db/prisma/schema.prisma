@@ -607,6 +607,64 @@ model NaverShoppingKeyword {
   @@index([keyword])
 }
 
+/// 상품 상세 정보 (네이버 API에서 가져온 추가 정보)
+model ProductDetail {
+  id                            BigInt    @id @default(autoincrement())
+  product_id                    BigInt    @unique
+  
+  // 원본 상품 정보
+  origin_product_no             BigInt?
+  channel_product_no            BigInt?
+  
+  // 상태
+  status_type                   String?   @db.NVarChar(50)
+  display_status                String?   @db.NVarChar(50)
+  
+  // 가격/할인
+  original_price                BigInt?
+  discount_rate                 Float?
+  mobile_discounted_price       BigInt?
+  
+  // 배송
+  delivery_attribute_type       String?   @db.NVarChar(50)
+  delivery_fee                  BigInt?
+  return_fee                    BigInt?
+  exchange_fee                  BigInt?
+  
+  // 포인트
+  seller_purchase_point         Int?
+  seller_purchase_point_unit    String?   @db.NVarChar(20)
+  manager_purchase_point        Int?
+  text_review_point             Int?
+  photo_video_review_point      Int?
+  regular_customer_point        Int?
+  
+  // 혜택
+  free_interest                 Int?
+  gift                          String?   @db.NVarChar(500)
+  
+  // 카테고리
+  category_id                   String?   @db.NVarChar(50)
+  whole_category_id             String?   @db.NVarChar(200)
+  whole_category_name           String?   @db.NVarChar(500)
+  
+  // 브랜드/제조사
+  brand_name                    String?   @db.NVarChar(200)
+  manufacturer_name             String?   @db.NVarChar(200)
+  
+  // 기타
+  knowledge_shopping_registration Boolean?
+  
+  // 타임스탬프
+  created_at                    DateTime? @default(now())
+  updated_at                    DateTime? @default(now())
+  
+  @@map("affiliate_products_detail")
+  @@index([product_id])
+  @@index([status_type])
+  @@index([category_id])
+}
+
 // ============================================
 // 고객 지원 시스템
 // ============================================

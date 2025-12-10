@@ -5,6 +5,7 @@ import { prisma } from '@gconnect/db';
 import { getDecryptedNaverApiKey } from '@/lib/naver-utils';
 import { NaverApiClient, transformNaverProduct } from '@/lib/naver-api';
 import { createSyncErrorNotification } from '@/lib/notifications';
+import { processNaverCategory } from '@/lib/category-utils';
 
 // 재시도 설정
 const MAX_RETRIES = 3;
@@ -196,9 +197,11 @@ export async function POST() {
           },
         });
 
+        let savedProduct;
+
         if (existingProduct) {
           // 기존 상품 업데이트
-          await prisma.product.update({
+          savedProduct = await prisma.product.update({
             where: { id: existingProduct.id },
             data: {
               product_name: productData.name,
@@ -210,10 +213,9 @@ export async function POST() {
               updated_at: new Date(),
             },
           });
-          synced++;
         } else {
           // 새 상품 생성
-          await prisma.product.create({
+          savedProduct = await prisma.product.create({
             data: {
               userId: session.user.id,
               product_name: productData.name,
@@ -227,8 +229,103 @@ export async function POST() {
               updated_at: new Date(),
             },
           });
-          synced++;
         }
+
+        // 상세 정보 저장 (ProductDetail)
+        if (productData.detail && savedProduct) {
+          try {
+            const existingDetail = await prisma.productDetail.findUnique({
+              where: { product_id: savedProduct.id },
+            });
+
+            if (existingDetail) {
+              // 기존 상세 정보 업데이트
+              await prisma.productDetail.update({
+                where: { product_id: savedProduct.id },
+                data: {
+                  origin_product_no: productData.detail.originProductNo ? BigInt(productData.detail.originProductNo) : null,
+                  channel_product_no: productData.detail.channelProductNo ? BigInt(productData.detail.channelProductNo) : null,
+                  status_type: productData.detail.statusType || null,
+                  display_status: productData.detail.displayStatus || null,
+                  original_price: productData.detail.originalPrice ? BigInt(productData.detail.originalPrice) : null,
+                  discount_rate: productData.detail.discountRate || null,
+                  mobile_discounted_price: productData.detail.mobileDiscountedPrice ? BigInt(productData.detail.mobileDiscountedPrice) : null,
+                  delivery_attribute_type: productData.detail.deliveryAttributeType || null,
+                  delivery_fee: productData.detail.deliveryFee ? BigInt(productData.detail.deliveryFee) : null,
+                  return_fee: productData.detail.returnFee ? BigInt(productData.detail.returnFee) : null,
+                  exchange_fee: productData.detail.exchangeFee ? BigInt(productData.detail.exchangeFee) : null,
+                  seller_purchase_point: productData.detail.sellerPurchasePoint || null,
+                  seller_purchase_point_unit: productData.detail.sellerPurchasePointUnit || null,
+                  manager_purchase_point: productData.detail.managerPurchasePoint || null,
+                  text_review_point: productData.detail.textReviewPoint || null,
+                  photo_video_review_point: productData.detail.photoVideoReviewPoint || null,
+                  regular_customer_point: productData.detail.regularCustomerPoint || null,
+                  free_interest: productData.detail.freeInterest || null,
+                  gift: productData.detail.gift || null,
+                  category_id: productData.detail.categoryId || null,
+                  whole_category_id: productData.detail.wholeCategoryId || null,
+                  whole_category_name: productData.detail.wholeCategoryName || null,
+                  brand_name: productData.detail.brandName || null,
+                  manufacturer_name: productData.detail.manufacturerName || null,
+                  knowledge_shopping_registration: productData.detail.knowledgeShoppingRegistration || null,
+                  updated_at: new Date(),
+                },
+              });
+            } else {
+              // 새 상세 정보 생성
+              await prisma.productDetail.create({
+                data: {
+                  product_id: savedProduct.id,
+                  origin_product_no: productData.detail.originProductNo ? BigInt(productData.detail.originProductNo) : null,
+                  channel_product_no: productData.detail.channelProductNo ? BigInt(productData.detail.channelProductNo) : null,
+                  status_type: productData.detail.statusType || null,
+                  display_status: productData.detail.displayStatus || null,
+                  original_price: productData.detail.originalPrice ? BigInt(productData.detail.originalPrice) : null,
+                  discount_rate: productData.detail.discountRate || null,
+                  mobile_discounted_price: productData.detail.mobileDiscountedPrice ? BigInt(productData.detail.mobileDiscountedPrice) : null,
+                  delivery_attribute_type: productData.detail.deliveryAttributeType || null,
+                  delivery_fee: productData.detail.deliveryFee ? BigInt(productData.detail.deliveryFee) : null,
+                  return_fee: productData.detail.returnFee ? BigInt(productData.detail.returnFee) : null,
+                  exchange_fee: productData.detail.exchangeFee ? BigInt(productData.detail.exchangeFee) : null,
+                  seller_purchase_point: productData.detail.sellerPurchasePoint || null,
+                  seller_purchase_point_unit: productData.detail.sellerPurchasePointUnit || null,
+                  manager_purchase_point: productData.detail.managerPurchasePoint || null,
+                  text_review_point: productData.detail.textReviewPoint || null,
+                  photo_video_review_point: productData.detail.photoVideoReviewPoint || null,
+                  regular_customer_point: productData.detail.regularCustomerPoint || null,
+                  free_interest: productData.detail.freeInterest || null,
+                  gift: productData.detail.gift || null,
+                  category_id: productData.detail.categoryId || null,
+                  whole_category_id: productData.detail.wholeCategoryId || null,
+                  whole_category_name: productData.detail.wholeCategoryName || null,
+                  brand_name: productData.detail.brandName || null,
+                  manufacturer_name: productData.detail.manufacturerName || null,
+                  knowledge_shopping_registration: productData.detail.knowledgeShoppingRegistration || null,
+                  created_at: new Date(),
+                  updated_at: new Date(),
+                },
+              });
+            }
+          } catch (detailError: any) {
+            console.error('[Sync] ProductDetail 저장 실패:', detailError.message);
+            // ProductDetail 저장 실패해도 상품은 저장되었으므로 계속 진행
+          }
+        }
+
+        // 카테고리 자동 생성
+        if (productData.detail?.wholeCategoryName && productData.detail?.wholeCategoryId) {
+          try {
+            await processNaverCategory(
+              productData.detail.wholeCategoryName,
+              productData.detail.wholeCategoryId
+            );
+          } catch (categoryError: any) {
+            console.error('[Sync] 카테고리 생성 실패:', categoryError.message);
+            // 카테고리 생성 실패해도 상품은 저장되었으므로 계속 진행
+          }
+        }
+
+        synced++;
       } catch (error: any) {
         console.error('[Sync] 상품 저장 실패:', error.message);
         console.error('[Sync] 상품 데이터:', JSON.stringify(productData, null, 2));

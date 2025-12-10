@@ -253,11 +253,40 @@ export class NaverApiClient {
 }
 
 /**
- * 네이버 상품 데이터를 내부 형식으로 변환
- * 네이버 API는 originProductNo와 channelProducts 배열을 반환
- * 실제 상품 정보는 channelProducts[0] 안에 있음
+ * 네이버 상품 상세 정보 타입
  */
-export function transformNaverProduct(naverProduct: any): {
+export interface ProductDetail {
+  originProductNo: number;
+  channelProductNo: number;
+  statusType: string;
+  displayStatus: string;
+  originalPrice: number;
+  discountRate: number;
+  mobileDiscountedPrice: number;
+  deliveryAttributeType: string;
+  deliveryFee: number;
+  returnFee: number;
+  exchangeFee: number;
+  sellerPurchasePoint: number;
+  sellerPurchasePointUnit: string;
+  managerPurchasePoint: number;
+  textReviewPoint: number;
+  photoVideoReviewPoint: number;
+  regularCustomerPoint: number;
+  freeInterest: number;
+  gift: string;
+  categoryId: string;
+  wholeCategoryId: string;
+  wholeCategoryName: string;
+  knowledgeShoppingRegistration: boolean;
+  brandName?: string;
+  manufacturerName?: string;
+}
+
+/**
+ * 변환된 상품 정보 타입
+ */
+export interface TransformedProduct {
   name: string;
   description?: string;
   price: number;
@@ -268,7 +297,16 @@ export function transformNaverProduct(naverProduct: any): {
   productUrl?: string;
   naverProductId: string;
   naverProductNo?: string;
-} {
+  categoryPath?: string;
+  detail?: ProductDetail;
+}
+
+/**
+ * 네이버 상품 데이터를 내부 형식으로 변환
+ * 네이버 API는 originProductNo와 channelProducts 배열을 반환
+ * 실제 상품 정보는 channelProducts[0] 안에 있음
+ */
+export function transformNaverProduct(naverProduct: any): TransformedProduct {
   // channelProducts 배열에서 첫 번째 상품 정보 추출
   const channelProduct = naverProduct.channelProducts?.[0];
   
@@ -303,7 +341,43 @@ export function transformNaverProduct(naverProduct: any): {
     ? `https://smartstore.naver.com/product/${channelProduct.channelProductNo}`
     : undefined;
 
-  const result = {
+  // 할인율 계산
+  const originalPrice = channelProduct.salePrice || 0;
+  const discountedPrice = channelProduct.discountedPrice || channelProduct.salePrice || 0;
+  const discountRate = originalPrice > 0 && discountedPrice < originalPrice
+    ? ((originalPrice - discountedPrice) / originalPrice * 100)
+    : 0;
+
+  // 상세 정보 추출
+  const detail: ProductDetail = {
+    originProductNo: naverProduct.originProductNo || 0,
+    channelProductNo: channelProduct.channelProductNo || 0,
+    statusType: channelProduct.statusType || '',
+    displayStatus: channelProduct.channelProductDisplayStatusType || '',
+    originalPrice: originalPrice,
+    discountRate: discountRate,
+    mobileDiscountedPrice: channelProduct.mobileDiscountedPrice || discountedPrice,
+    deliveryAttributeType: channelProduct.deliveryAttributeType || '',
+    deliveryFee: channelProduct.deliveryFee || 0,
+    returnFee: channelProduct.returnFee || 0,
+    exchangeFee: channelProduct.exchangeFee || 0,
+    sellerPurchasePoint: channelProduct.sellerPurchasePoint || 0,
+    sellerPurchasePointUnit: channelProduct.sellerPurchasePointUnitType || '',
+    managerPurchasePoint: channelProduct.managerPurchasePoint || 0,
+    textReviewPoint: channelProduct.textReviewPoint || 0,
+    photoVideoReviewPoint: channelProduct.photoVideoReviewPoint || 0,
+    regularCustomerPoint: channelProduct.regularCustomerPoint || 0,
+    freeInterest: channelProduct.freeInterest || 0,
+    gift: channelProduct.gift || '',
+    categoryId: channelProduct.categoryId || '',
+    wholeCategoryId: channelProduct.wholeCategoryId || '',
+    wholeCategoryName: channelProduct.wholeCategoryName || '',
+    knowledgeShoppingRegistration: channelProduct.knowledgeShoppingProductRegistration || false,
+    brandName: channelProduct.brandName,
+    manufacturerName: channelProduct.manufacturerName,
+  };
+
+  const result: TransformedProduct = {
     name: productName,
     description: channelProduct.description,
     price: salePrice,
@@ -315,6 +389,7 @@ export function transformNaverProduct(naverProduct: any): {
     categoryPath: wholeCategoryName,
     naverProductId: naverProduct.originProductNo?.toString() || `UNKNOWN_${Date.now()}`,
     naverProductNo: channelProduct.channelProductNo?.toString(),
+    detail: detail,
   };
 
   return result;
