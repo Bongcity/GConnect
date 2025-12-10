@@ -319,6 +319,20 @@ export interface TransformedProduct {
  * 실제 상품 정보는 channelProducts[0] 안에 있음
  */
 export function transformNaverProduct(naverProduct: any): TransformedProduct {
+  // @ts-ignore - 로깅용 정적 변수
+  if (typeof transformNaverProduct.logged === 'undefined') {
+    // @ts-ignore
+    transformNaverProduct.logged = false;
+  }
+  // 🔍 네이버 API 원본 데이터 로그 (처음 1개만)
+  // @ts-ignore
+  if (!transformNaverProduct.logged) {
+    console.log('=== 네이버 API 원본 응답 샘플 ===');
+    console.log('naverProduct 전체:', JSON.stringify(naverProduct, null, 2));
+    // @ts-ignore
+    transformNaverProduct.logged = true;
+  }
+  
   // channelProducts 배열에서 첫 번째 상품 정보 추출
   const channelProduct = naverProduct.channelProducts?.[0];
   
@@ -332,6 +346,9 @@ export function transformNaverProduct(naverProduct: any): TransformedProduct {
       naverProductNo: naverProduct.originProductNo?.toString(),
     };
   }
+  
+  console.log('=== channelProduct 샘플 ===');
+  console.log('channelProduct 전체:', JSON.stringify(channelProduct, null, 2));
 
   // 상품명
   const productName = channelProduct.name || '상품명 없음';
@@ -360,6 +377,16 @@ export function transformNaverProduct(naverProduct: any): TransformedProduct {
     ? parseFloat(((originalPrice - discountedPrice) / originalPrice * 100).toFixed(2))
     : 0;
   
+  console.log('💸 가격/할인율 정보:', { 
+    originalPrice, 
+    discountedPrice, 
+    discountRate: `${discountRate}%`,
+    '원본필드들': {
+      'channelProduct.salePrice': channelProduct.salePrice,
+      'channelProduct.discountedPrice': channelProduct.discountedPrice,
+    }
+  });
+  
   // 스토어 정보 추출
   const storeId = naverProduct.sellerCustomerNo?.toString() 
     || channelProduct.sellerCustomerNo?.toString()
@@ -375,6 +402,23 @@ export function transformNaverProduct(naverProduct: any): TransformedProduct {
     || channelProduct.isBrand === true
     || channelProduct.isBrandStore === true;
   
+  console.log('🏪 스토어 정보:', { 
+    storeId, 
+    storeName, 
+    brandStore,
+    '원본필드들': {
+      'naverProduct.sellerCustomerNo': naverProduct.sellerCustomerNo,
+      'channelProduct.sellerCustomerNo': channelProduct.sellerCustomerNo,
+      'naverProduct.sellerNo': naverProduct.sellerNo,
+      'channelProduct.sellerNo': channelProduct.sellerNo,
+      'naverProduct.sellerName': naverProduct.sellerName,
+      'channelProduct.sellerName': channelProduct.sellerName,
+      'channelProduct.brandType': channelProduct.brandType,
+      'channelProduct.isBrand': channelProduct.isBrand,
+      'channelProduct.isBrandStore': channelProduct.isBrandStore,
+    }
+  });
+  
   // 추가 이미지 배열 처리
   const otherImages: string[] = [];
   if (channelProduct.images && Array.isArray(channelProduct.images)) {
@@ -386,6 +430,12 @@ export function transformNaverProduct(naverProduct: any): TransformedProduct {
     });
   }
   
+  console.log('📸 추가 이미지:', { 
+    count: otherImages.length, 
+    images: otherImages.slice(0, 2),
+    '원본 images 필드': channelProduct.images?.length || 0
+  });
+  
   // 상세 설명 URL
   const descriptionUrl = channelProduct.detailContent?.url 
     || channelProduct.detailContentUrl
@@ -393,6 +443,15 @@ export function transformNaverProduct(naverProduct: any): TransformedProduct {
     || (channelProduct.channelProductNo 
       ? `https://smartstore.naver.com/${channelProduct.channelProductNo}/detail`
       : undefined);
+  
+  console.log('📝 상세 URL:', { 
+    descriptionUrl,
+    '원본필드들': {
+      'channelProduct.detailContent?.url': channelProduct.detailContent?.url,
+      'channelProduct.detailContentUrl': channelProduct.detailContentUrl,
+      'channelProduct.pcDetailContent?.url': channelProduct.pcDetailContent?.url,
+    }
+  });
   
   // 수수료 정보 (있는 경우만)
   const commissionRate = channelProduct.commissionRate 
@@ -403,9 +462,29 @@ export function transformNaverProduct(naverProduct: any): TransformedProduct {
     || naverProduct.promotionCommissionRate
     || 0;
   
+  console.log('💰 수수료 정보:', { 
+    commissionRate, 
+    promotionCommissionRate,
+    '원본필드들': {
+      'channelProduct.commissionRate': channelProduct.commissionRate,
+      'naverProduct.commissionRate': naverProduct.commissionRate,
+      'channelProduct.promotionCommissionRate': channelProduct.promotionCommissionRate,
+      'naverProduct.promotionCommissionRate': naverProduct.promotionCommissionRate,
+    }
+  });
+  
   // 프로모션 정보 JSON 변환
   const promotions = channelProduct.promotions || naverProduct.promotions || [];
   const promotionJson = promotions.length > 0 ? JSON.stringify(promotions) : null;
+  
+  console.log('🎁 프로모션 정보:', { 
+    promotionCount: promotions.length,
+    promotionJson: promotionJson?.substring(0, 100),
+    '원본필드들': {
+      'channelProduct.promotions': channelProduct.promotions?.length || 0,
+      'naverProduct.promotions': naverProduct.promotions?.length || 0,
+    }
+  });
 
   // 상세 정보 추출 (discount_rate 제거 - affiliate_products.discounted_rate 사용)
   const detail: ProductDetail = {
