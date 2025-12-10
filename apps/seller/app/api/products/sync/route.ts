@@ -44,7 +44,8 @@ async function sleep(ms: number) {
  */
 async function fetchNaverProductsWithRetry(
   naverClient: NaverApiClient,
-  maxPages: number = 3
+  maxPages: number = 3,
+  storeId?: string
 ): Promise<any[]> {
   let lastError: any = null;
   
@@ -66,12 +67,12 @@ async function fetchNaverProductsWithRetry(
             const channelProductNo = product.channelProducts?.[0]?.channelProductNo;
             if (!channelProductNo) {
               console.warn(`[Sync] channelProductNo 없음:`, product);
-              return transformNaverProduct(product);
+              return transformNaverProduct(product, undefined, storeId);
             }
             
             // 상세 정보 조회
             const detailData = await naverClient.getChannelProductDetail(channelProductNo.toString());
-            return transformNaverProduct(product, detailData);
+            return transformNaverProduct(product, detailData, storeId);
           })
         );
         transformedProducts.push(...batchResults);
@@ -141,8 +142,12 @@ export async function POST() {
         clientSecret: naverApiKey.clientSecret,
       });
 
+      // 스토어 ID 조회 (URL 생성용)
+      const storeId = await naverClient.getStoreId();
+      console.log(`[Sync] 스토어 ID 조회 완료: ${storeId}`);
+
       // fetchNaverProductsWithRetry가 이미 변환된 상품을 반환
-      productsToSync = await fetchNaverProductsWithRetry(naverClient, 3);
+      productsToSync = await fetchNaverProductsWithRetry(naverClient, 3, storeId);
       totalCount = productsToSync.length;
       
       console.log(`[Sync] ${totalCount}개 상품 변환 완료`);

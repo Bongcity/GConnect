@@ -319,6 +319,58 @@ export class NaverApiClient {
 
     return allProducts;
   }
+
+  /**
+   * 계정의 채널 정보 조회 (스토어 ID 가져오기)
+   * GET /v1/seller/channels
+   * https://apicenter.commerce.naver.com/docs/commerce-api/current/get-channels-by-account-no-sellers
+   */
+  async getChannelInfo(): Promise<any | null> {
+    try {
+      const headers = await this.getHeaders();
+      
+      const response = await fetch(
+        'https://api.commerce.naver.com/external/v1/seller/channels',
+        {
+          method: 'GET',
+          headers,
+        }
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`[NaverAPI] 채널 정보 조회 실패 (${response.status}):`, errorText);
+        return null;
+      }
+
+      const data = await response.json();
+      console.log('🏪 채널 정보:', JSON.stringify(data, null, 2));
+      return data;
+    } catch (error) {
+      console.error('[NaverAPI] 채널 정보 조회 중 오류:', error);
+      return null;
+    }
+  }
+
+  /**
+   * 스토어 ID 가져오기 (캐싱 포함)
+   */
+  private cachedStoreId: string = '';
+  
+  async getStoreId(): Promise<string> {
+    if (this.cachedStoreId) {
+      return this.cachedStoreId;
+    }
+    
+    const channelInfo = await this.getChannelInfo();
+    // 응답 구조: { channels: [{ channelId, channelNo, channelName, ... }] }
+    this.cachedStoreId = channelInfo?.channels?.[0]?.channelId 
+      || channelInfo?.channels?.[0]?.storeId
+      || 'UNKNOWN_STORE';
+    
+    console.log('🏪 스토어 ID:', this.cachedStoreId);
+    return this.cachedStoreId;
+  }
 }
 
 /**
@@ -389,8 +441,9 @@ export interface TransformedProduct {
  * 
  * @param naverProduct - 네이버 API 상품 데이터
  * @param detailData - 선택적 상세 정보 (v2 API에서 조회)
+ * @param storeId - 스마트스토어 ID (예: "kcmaker")
  */
-export function transformNaverProduct(naverProduct: any, detailData?: any): TransformedProduct {
+export function transformNaverProduct(naverProduct: any, detailData?: any, storeId?: string): TransformedProduct {
   // @ts-ignore - 로깅용 정적 변수
   if (typeof transformNaverProduct.logged === 'undefined') {
     // @ts-ignore
@@ -437,9 +490,10 @@ export function transformNaverProduct(naverProduct: any, detailData?: any): Tran
   // 카테고리
   const wholeCategoryName = channelProduct.wholeCategoryName;
 
-  // 상품 URL 구성 (channelProductNo 사용)
-  const productUrl = channelProduct.channelProductNo 
-    ? `https://smartstore.naver.com/product/${channelProduct.channelProductNo}`
+  // 상품 URL 구성 (스토어 ID + channelProductNo 사용)
+  // 형식: https://smartstore.naver.com/{storeId}/products/{channelProductNo}
+  const productUrl = storeId && channelProduct.channelProductNo 
+    ? `https://smartstore.naver.com/${storeId}/products/${channelProduct.channelProductNo}`
     : undefined;
 
   // 할인율 계산 (affiliate_products.discounted_rate에 저장)
@@ -462,7 +516,8 @@ export function transformNaverProduct(naverProduct: any, detailData?: any): Tran
   // 스토어 정보 추출 (상세 정보 우선)
   // ❌ 네이버 API에서 sellerCustomerNo, sellerName 필드를 제공하지 않음
   // ⚠️  현재는 brandName만 사용 가능 (channelProduct.brandName)
-  const storeId = detailData?.originProduct?.sellerCustomerNo?.toString()
+  // affiliate_store_id용 (숫자 ID)
+  const affiliateStoreId = detailData?.originProduct?.sellerCustomerNo?.toString()
     || detailData?.originProduct?.sellerNo?.toString()
     || naverProduct.sellerCustomerNo?.toString() 
     || channelProduct.sellerCustomerNo?.toString()
@@ -485,7 +540,8 @@ export function transformNaverProduct(naverProduct: any, detailData?: any): Tran
     || channelProduct.isBrandStore === true;
   
   console.log('🏪 스토어 정보:', { 
-    storeId, 
+    affiliateStoreId,  // DB용 숫자 ID
+    storeId,  // URL용 스토어명 (예: "kcmaker") 
     storeName, 
     brandStore,
     'detailData 사용': !!detailData?.originProduct,
@@ -518,21 +574,21 @@ export function transformNaverProduct(naverProduct: any, detailData?: any): Tran
   });
   
   // 상세 설명 URL
-  // ❌ detailData.originProduct.detailContent는 HTML이지 URL이 아님
-  // ✅ 기본 URL 구성: https://smartstore.naver.com/{channelProductNo}/detail
+  // API에서 제공하는 URL이 있으면 사용, 없으면 상품 페이지 URL 사용
+  // 형식: https://smartstore.naver.com/{storeId}/products/{channelProductNo}
   const descriptionUrl = channelProduct.detailContent?.url 
     || channelProduct.detailContentUrl
     || channelProduct.pcDetailContent?.url
-    || (channelProduct.channelProductNo 
-      ? `https://smartstore.naver.com/${channelProduct.channelProductNo}/detail`
+    || (storeId && channelProduct.channelProductNo 
+      ? `https://smartstore.naver.com/${storeId}/products/${channelProduct.channelProductNo}`
       : undefined);
   
-  console.log('📝 상세 URL:', { 
+  console.log('🔗 URL 생성:', {
+    storeId,
+    channelProductNo: channelProduct.channelProductNo,
+    productUrl,
     descriptionUrl,
-    'HTML detailContent 존재': !!detailData?.originProduct?.detailContent,
-    '원본필드들': {
-      'channelProduct.detailContent?.url': channelProduct.detailContent?.url,
-    }
+    'API 제공 detailContent URL': channelProduct.detailContent?.url || channelProduct.detailContentUrl
   });
   
   // 수수료 정보 (상세 정보 우선)
@@ -619,7 +675,7 @@ export function transformNaverProduct(naverProduct: any, detailData?: any): Tran
     naverProductNo: channelProduct.channelProductNo?.toString(),
     
     // affiliate_products 테이블 추가 필드
-    storeId: storeId,
+    storeId: affiliateStoreId,
     storeName: storeName,
     brandStore: brandStore,
     discountedRate: discountRate,
