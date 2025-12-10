@@ -124,137 +124,112 @@ export async function POST(req: Request) {
         );
       }
       
-      // 2단계: 발급받은 토큰으로 API 테스트
-      console.log('🔍 API 엔드포인트 테스트 중...');
-      const endpoints = [
-        'https://api.commerce.naver.com/external/v1/products?page=1&size=1',
-        'https://api.commerce.naver.com/external/v2/products?page=1&size=1',
-        'https://api.commerce.naver.com/external/v1/product-origins?page=1&size=1',
-        'https://api.commerce.naver.com/external/v1/categories',
-      ];
-
-      let apiResponse = null;
-      let successEndpoint = null;
-      const failedAttempts: Array<{endpoint: string, status: number, error: any}> = [];
-
-      for (const endpoint of endpoints) {
-        console.log(`🔍 Testing endpoint: ${endpoint}`);
-        try {
-          const response = await fetch(endpoint, {
-            method: 'GET',
+      // 2단계: 발급받은 토큰으로 상품 조회 API 테스트
+      console.log('🔍 상품 조회 API 테스트 중...');
+      console.log('   엔드포인트: POST /external/v1/products/search');
+      
+      try {
+        const response = await fetch(
+          'https://api.commerce.naver.com/external/v1/products/search',
+          {
+            method: 'POST',
             headers: {
               'Content-Type': 'application/json',
               'Authorization': `Bearer ${accessToken}`,
             },
-          });
+            body: JSON.stringify({
+              searchCondition: {
+                productStatus: 'ON_SALE',
+              },
+              paging: {
+                page: 1,
+                size: 10,
+              },
+            }),
+          }
+        );
 
-          console.log(`   ℹ️ Status: ${response.status} ${response.statusText}`);
+        console.log(`   ℹ️ Status: ${response.status} ${response.statusText}`);
+        
+        const responseText = await response.text();
+        let responseData;
+        try {
+          responseData = JSON.parse(responseText);
+        } catch {
+          responseData = responseText;
+        }
+
+        if (response.ok) {
+          console.log(`   ✅ API 호출 성공!`);
           
-          // 응답 본문 로깅
-          const responseText = await response.text();
-          let responseData;
-          try {
-            responseData = JSON.parse(responseText);
-          } catch {
-            responseData = responseText;
-          }
+          const totalCount = responseData.totalCount || 0;
+          const productCount = responseData.products ? responseData.products.length : 0;
+          
+          console.log(`   📊 총 상품 수: ${totalCount}`);
+          console.log(`   📦 조회된 상품: ${productCount}개`);
 
-          if (response.ok) {
-            apiResponse = response;
-            successEndpoint = endpoint;
-            console.log(`   ✅ Success!`);
-            
-            // 성공한 응답을 다시 사용하기 위해 Response 객체 재생성
-            apiResponse = new Response(responseText, {
-              status: response.status,
-              statusText: response.statusText,
-              headers: response.headers,
-            });
-            break;
-          } else {
-            console.log(`   ❌ Response: ${JSON.stringify(responseData).substring(0, 200)}`);
-            failedAttempts.push({
-              endpoint,
-              status: response.status,
-              error: responseData
-            });
-          }
-        } catch (e) {
-          console.log(`   ❌ Failed: ${e}`);
-          failedAttempts.push({
-            endpoint,
-            status: 0,
-            error: String(e)
+          return NextResponse.json({
+            ok: true,
+            message: `✅ 네이버 커머스 API 연결 성공!`,
+            endpoint: 'POST /external/v1/products/search',
+            totalProducts: totalCount,
+            retrievedProducts: productCount,
+            authMethod: 'OAuth 2.0 (bcrypt)',
+            hint: productCount === 0 ? 
+              '⚠️ 상품이 0개입니다. 스마트스토어에 "판매중" 상태의 상품이 있는지 확인해주세요.' : 
+              '✅ 상품 데이터가 정상적으로 조회되었습니다!'
           });
-          continue;
-        }
-      }
-
-      if (!apiResponse) {
-        console.log('❌ 모든 엔드포인트 테스트 실패');
-        
-        // 모든 시도가 실패한 경우, 가장 유용한 에러 정보 반환
-        const has404 = failedAttempts.some(a => a.status === 404);
-        const has401or403 = failedAttempts.some(a => a.status === 401 || a.status === 403);
-        
-        if (has401or403) {
-          const authError = failedAttempts.find(a => a.status === 401 || a.status === 403);
+        } else {
+          console.log(`   ❌ API 호출 실패`);
+          console.log(`   응답: ${JSON.stringify(responseData).substring(0, 300)}`);
+          
+          if (response.status === 401 || response.status === 403) {
+            return NextResponse.json(
+              { 
+                error: 'API 인증 실패',
+                details: `상태 코드: ${response.status}`,
+                hint: '1. 애플리케이션 ID/시크릿 확인\n' +
+                      '2. API 사용 승인 여부 확인\n' +
+                      '3. 서버 IP(211.195.9.70) 등록 확인',
+                response: responseData
+              },
+              { status: 400 }
+            );
+          }
+          
+          if (response.status === 404) {
+            return NextResponse.json(
+              { 
+                error: 'API 엔드포인트 없음',
+                details: '상품 조회 API를 찾을 수 없습니다.',
+                hint: '1. "상품" API 활성화 확인\n' +
+                      '2. 스마트스토어 상품 등록 확인\n' +
+                      '3. API 센터 승인 상태 확인',
+                response: responseData
+              },
+              { status: 400 }
+            );
+          }
+          
           return NextResponse.json(
             { 
-              error: '애플리케이션 ID 또는 시크릿 키가 올바르지 않습니다.',
-              details: `상태 코드: ${authError?.status}`,
-              hint: '네이버 커머스 API 센터에서 설정을 확인해주세요.\n' +
-                    '1. API 사용 승인이 완료되었는지 확인\n' +
-                    '2. 서버 IP가 등록되어 있는지 확인\n' +
-                    '3. "상품" API가 활성화되어 있는지 확인',
-              failedAttempts: failedAttempts
+              error: 'API 호출 실패',
+              details: `상태 코드: ${response.status}`,
+              response: responseData
             },
             { status: 400 }
           );
         }
-        
-        if (has404) {
-          return NextResponse.json(
-            { 
-              error: 'API 엔드포인트를 찾을 수 없습니다.',
-              details: '모든 엔드포인트에서 404 오류가 발생했습니다.',
-              hint: '다음 사항을 확인해주세요:\n' +
-                    '1. 네이버 커머스 API 센터에서 "상품" API가 승인되었는지 확인\n' +
-                    '2. 서버 IP가 등록되어 있는지 확인\n' +
-                    '3. 스마트스토어 센터에서 API 연동 상태 확인\n' +
-                    '4. 상품이 등록되어 있는지 확인 (상품이 없으면 404 반환)',
-              testedEndpoints: endpoints,
-              failedAttempts: failedAttempts
-            },
-            { status: 400 }
-          );
-        }
-
+      } catch (apiTestError: any) {
+        console.error('   ❌ API 테스트 오류:', apiTestError);
         return NextResponse.json(
           { 
-            error: 'API 연결에 실패했습니다.',
-            details: '모든 엔드포인트 테스트가 실패했습니다.',
-            hint: '네이버 커머스 API 센터에서 설정을 확인해주세요.',
-            failedAttempts: failedAttempts
+            error: 'API 테스트 중 오류 발생',
+            details: apiTestError.message || String(apiTestError),
           },
-          { status: 400 }
+          { status: 500 }
         );
       }
-
-      const data = await apiResponse.json();
-      console.log('✅ API 연결 테스트 성공!');
-      
-      // 상품 데이터 확인
-      const productCount = data.products ? data.products.length : (data.contents ? data.contents.length : 0);
-
-      return NextResponse.json({
-        ok: true,
-        message: `✅ API 연결 테스트에 성공했습니다!`,
-        successEndpoint: successEndpoint,
-        productCount: productCount,
-        dataKeys: Object.keys(data),
-        authMethod: 'OAuth 2.0'
-      });
       
     } catch (apiError: any) {
       console.error('Naver API test error:', apiError);

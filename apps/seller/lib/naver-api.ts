@@ -126,16 +126,29 @@ export class NaverApiClient {
   }
 
   /**
-   * 상품 목록 조회
+   * 상품 목록 조회 (POST /v1/products/search)
+   * 네이버 커머스 API 공식 엔드포인트 사용
    */
   async getProducts(page: number = 1, size: number = 100): Promise<NaverProductListResponse> {
     try {
       const headers = await this.getHeaders();
+      
+      console.log(`[NaverAPI] 상품 조회: POST /v1/products/search (page=${page}, size=${size})`);
+      
       const response = await fetch(
-        `https://api.commerce.naver.com/external/v1/products?page=${page}&size=${size}`,
+        `https://api.commerce.naver.com/external/v1/products/search`,
         {
-          method: 'GET',
+          method: 'POST',
           headers,
+          body: JSON.stringify({
+            searchCondition: {
+              productStatus: 'ON_SALE', // 판매중인 상품만
+            },
+            paging: {
+              page: page,
+              size: size,
+            },
+          }),
         }
       );
 
@@ -147,18 +160,23 @@ export class NaverApiClient {
         } catch {
           errorData = { message: errorText };
         }
-        console.error('Naver API error:', response.status, errorData);
+        console.error('[NaverAPI] 상품 조회 실패:', response.status, errorData);
         throw new Error(errorData.message || `API 호출 실패 (${response.status})`);
       }
 
       const data = await response.json();
+      
+      const totalCount = data.totalCount || data.totalElements || 0;
+      const products = data.products || data.contents || [];
+      
+      console.log(`[NaverAPI] 상품 조회 성공: totalCount=${totalCount}, products=${products.length}개`);
 
       return {
-        products: data.products || data.contents || [],
-        totalCount: data.totalCount || data.totalElements || 0,
+        products: products,
+        totalCount: totalCount,
       };
     } catch (error) {
-      console.error('Get products error:', error);
+      console.error('[NaverAPI] Get products error:', error);
       if (error instanceof Error) {
         throw error;
       }
