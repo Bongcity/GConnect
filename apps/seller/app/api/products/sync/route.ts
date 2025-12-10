@@ -230,7 +230,7 @@ export async function POST() {
               // 스토어 정보
               affiliate_store_id: productData.storeId ? BigInt(productData.storeId) : null,
               store_name: productData.storeName || null,
-              brand_store: productData.brandStore || false,
+              brand_store: productData.brandStore ? true : false, // 명시적으로 0 또는 1
               
               // 수수료 정보
               commission_rate: productData.commissionRate || null,
@@ -266,7 +266,7 @@ export async function POST() {
               // 스토어 정보
               affiliate_store_id: productData.storeId ? BigInt(productData.storeId) : null,
               store_name: productData.storeName || null,
-              brand_store: productData.brandStore || false,
+              brand_store: productData.brandStore ? true : false, // 명시적으로 0 또는 1
               
               // 수수료 정보
               commission_rate: productData.commissionRate || null,
