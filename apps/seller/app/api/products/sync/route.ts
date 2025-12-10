@@ -112,28 +112,12 @@ export async function POST() {
       });
 
       const rawNaverProducts = await naverClient.getAllProducts(3);
-      
-      console.log('========================================');
-      console.log('[Sync] 네이버 API 응답 분석');
-      console.log('========================================');
-      console.log(`[Sync] 총 상품 수: ${rawNaverProducts.length}`);
-      
-      if (rawNaverProducts.length > 0) {
-        console.log(`[Sync] 첫 번째 상품 원본 데이터 (전체):`);
-        console.log(JSON.stringify(rawNaverProducts[0], null, 2));
-        console.log('----------------------------------------');
-      } else {
-        console.error('[Sync] ⚠️ 네이버 API에서 상품을 가져오지 못했습니다!');
-      }
+      console.log(`[Sync] 네이버 API에서 ${rawNaverProducts.length}개 상품 가져옴`);
       
       productsToSync = rawNaverProducts.map(transformNaverProduct);
       totalCount = productsToSync.length;
       
-      if (productsToSync.length > 0) {
-        console.log(`[Sync] 변환된 첫 번째 상품 데이터:`);
-        console.log(JSON.stringify(productsToSync[0], null, 2));
-      }
-      console.log('========================================');
+      console.log(`[Sync] ${productsToSync.length}개 상품 변환 완료`);
     } catch (error: any) {
       console.error('Naver API sync failed after retries:', error);
       

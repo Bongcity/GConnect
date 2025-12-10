@@ -254,6 +254,8 @@ export class NaverApiClient {
 
 /**
  * 네이버 상품 데이터를 내부 형식으로 변환
+ * 네이버 API는 originProductNo와 channelProducts 배열을 반환
+ * 실제 상품 정보는 channelProducts[0] 안에 있음
  */
 export function transformNaverProduct(naverProduct: any): {
   name: string;
@@ -267,68 +269,54 @@ export function transformNaverProduct(naverProduct: any): {
   naverProductId: string;
   naverProductNo?: string;
 } {
-  console.log('[Transform] 원본 상품 데이터 키:', Object.keys(naverProduct));
-  console.log('[Transform] 상품명 후보:', {
-    name: naverProduct.name,
-    productName: naverProduct.productName,
-    originProductName: naverProduct.originProductName,
-  });
-  console.log('[Transform] 가격 후보:', {
-    salePrice: naverProduct.salePrice,
-    price: naverProduct.price,
-    originPrice: naverProduct.originPrice,
-  });
-
-  // 다양한 필드명 시도
-  const productName = 
-    naverProduct.name || 
-    naverProduct.productName || 
-    naverProduct.originProductName || 
-    '상품명 없음';
-
-  const salePrice = 
-    naverProduct.salePrice || 
-    naverProduct.price || 
-    naverProduct.originPrice || 
-    0;
-
-  const stockQuantity = 
-    naverProduct.stockQuantity || 
-    naverProduct.stock || 
-    undefined;
-
-  // 이미지 URL 추출 (여러 형식 지원)
-  let imageUrl = undefined;
-  if (naverProduct.representativeImage?.url) {
-    imageUrl = naverProduct.representativeImage.url;
-  } else if (naverProduct.images?.[0]?.url) {
-    imageUrl = naverProduct.images[0].url;
-  } else if (typeof naverProduct.images?.[0] === 'string') {
-    imageUrl = naverProduct.images[0];
-  } else if (naverProduct.imageUrl) {
-    imageUrl = naverProduct.imageUrl;
+  // channelProducts 배열에서 첫 번째 상품 정보 추출
+  const channelProduct = naverProduct.channelProducts?.[0];
+  
+  if (!channelProduct) {
+    console.warn('[Transform] channelProducts가 없습니다:', naverProduct);
+    return {
+      name: '상품명 없음',
+      price: 0,
+      salePrice: 0,
+      naverProductId: naverProduct.originProductNo?.toString() || `UNKNOWN_${Date.now()}`,
+      naverProductNo: naverProduct.originProductNo?.toString(),
+    };
   }
 
-  const productId = 
-    naverProduct.productNo?.toString() || 
-    naverProduct.originProductNo?.toString() || 
-    naverProduct.id?.toString() || 
-    `UNKNOWN_${Date.now()}`;
+  // 상품명
+  const productName = channelProduct.name || '상품명 없음';
+
+  // 가격 (할인가가 있으면 할인가, 없으면 원가)
+  const salePrice = channelProduct.discountedPrice || channelProduct.salePrice || 0;
+
+  // 재고
+  const stockQuantity = channelProduct.stockQuantity;
+
+  // 이미지 URL
+  const imageUrl = channelProduct.representativeImage?.url;
+
+  // 카테고리
+  const wholeCategoryName = channelProduct.wholeCategoryName;
+
+  // 상품 URL 구성 (channelProductNo 사용)
+  const productUrl = channelProduct.channelProductNo 
+    ? `https://smartstore.naver.com/product/${channelProduct.channelProductNo}`
+    : undefined;
 
   const result = {
     name: productName,
-    description: naverProduct.productDescription || naverProduct.description,
+    description: channelProduct.description,
     price: salePrice,
     salePrice: salePrice,
     stockQuantity: stockQuantity,
     imageUrl: imageUrl,
     thumbnailUrl: imageUrl,
-    productUrl: naverProduct.productUrl || naverProduct.url,
-    naverProductId: productId,
-    naverProductNo: productId,
+    productUrl: productUrl,
+    categoryPath: wholeCategoryName,
+    naverProductId: naverProduct.originProductNo?.toString() || `UNKNOWN_${Date.now()}`,
+    naverProductNo: channelProduct.channelProductNo?.toString(),
   };
 
-  console.log('[Transform] 변환 결과:', result);
   return result;
 }
 
