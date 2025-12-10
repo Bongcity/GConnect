@@ -173,23 +173,15 @@ export async function POST() {
     let failed = 0;
     const errors: string[] = [];
 
-    // 상품 동기화
+    // 상품 동기화 - 실제 DB 스키마(affiliate_products)에 맞춰 저장
     for (const productData of productsToSync) {
       try {
-        const categoryPath = [
-          productData.category1,
-          productData.category2,
-          productData.category3,
-        ]
-          .filter(Boolean)
-          .join(' > ');
-
-        // 기존 상품 확인 (naverProductId로)
-        const existingProduct = productData.naverProductId
+        // 기존 상품 확인 (product_name으로 중복 체크)
+        const existingProduct = productData.name
           ? await prisma.product.findFirst({
               where: {
                 userId: session.user.id,
-                naverProductId: productData.naverProductId,
+                product_name: productData.name,
               },
             })
           : null;
@@ -199,49 +191,37 @@ export async function POST() {
           await prisma.product.update({
             where: { id: existingProduct.id },
             data: {
-              product_name: productData.name,
-              product_description_url: productData.description,
+              product_name: productData.name || null,
               sale_price: productData.price ? BigInt(productData.price) : null,
               discounted_sale_price: productData.salePrice ? BigInt(productData.salePrice) : null,
-              stock_quantity: productData.stockQuantity,
-              representative_product_image_url: productData.imageUrl,
-              thumbnail_url: productData.thumbnailUrl,
-              category1: productData.category1,
-              category2: productData.category2,
-              category3: productData.category3,
-              categoryPath,
-              syncStatus: 'SYNCED',
-              lastSyncedAt: new Date(),
+              representative_product_image_url: productData.imageUrl || null,
+              product_url: productData.productUrl || null,
+              enabled: true,
+              updated_at: new Date(),
             },
           });
+          synced++;
         } else {
           // 새 상품 생성
           await prisma.product.create({
             data: {
               userId: session.user.id,
-              product_name: productData.name,
-              product_description_url: productData.description,
+              product_name: productData.name || '상품명 없음',
               sale_price: productData.price ? BigInt(productData.price) : null,
               discounted_sale_price: productData.salePrice ? BigInt(productData.salePrice) : null,
-              stock_quantity: productData.stockQuantity,
-              representative_product_image_url: productData.imageUrl,
-              thumbnail_url: productData.thumbnailUrl,
-              category1: productData.category1,
-              category2: productData.category2,
-              category3: productData.category3,
-              categoryPath,
-              naverProductId: productData.naverProductId || `SAMPLE_${Date.now()}_${synced}`,
-              naverProductNo: productData.naverProductNo,
-              syncStatus: 'SYNCED',
-              isActive: true,
-              isGoogleExposed: Math.random() > 0.5,
-              lastSyncedAt: new Date(),
+              representative_product_image_url: productData.imageUrl || null,
+              product_url: productData.productUrl || null,
+              product_status: 'ON_SALE',
+              enabled: true,
+              created_at: new Date(),
+              updated_at: new Date(),
             },
           });
+          synced++;
         }
-        synced++;
       } catch (error: any) {
-        console.error('Failed to sync product:', error);
+        console.error('[Sync] 상품 저장 실패:', error.message);
+        console.error('[Sync] 상품 데이터:', JSON.stringify(productData, null, 2));
         errors.push(error.message);
         failed++;
       }
