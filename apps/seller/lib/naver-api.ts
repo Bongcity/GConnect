@@ -340,11 +340,29 @@ export class NaverApiClient {
       if (!response.ok) {
         const errorText = await response.text();
         console.error(`[NaverAPI] 채널 정보 조회 실패 (${response.status}):`, errorText);
+        console.error(`[NaverAPI] 요청 헤더:`, headers);
         return null;
       }
 
       const data = await response.json();
-      console.log('🏪 채널 정보:', JSON.stringify(data, null, 2));
+      console.log('🏪 채널 정보 전체 응답:', JSON.stringify(data, null, 2));
+      
+      // 응답 구조 디버깅
+      if (data) {
+        console.log('🔍 채널 정보 구조 분석:');
+        console.log('  - data.channels 존재:', !!data.channels);
+        console.log('  - data.channels 길이:', data.channels?.length);
+        console.log('  - 첫 번째 채널:', data.channels?.[0]);
+        if (data.channels?.[0]) {
+          const firstChannel = data.channels[0];
+          console.log('  - channelId:', firstChannel.channelId);
+          console.log('  - channelNo:', firstChannel.channelNo);
+          console.log('  - storeId:', firstChannel.storeId);
+          console.log('  - storeName:', firstChannel.storeName);
+          console.log('  - 모든 키:', Object.keys(firstChannel));
+        }
+      }
+      
       return data;
     } catch (error) {
       console.error('[NaverAPI] 채널 정보 조회 중 오류:', error);
@@ -359,17 +377,55 @@ export class NaverApiClient {
   
   async getStoreId(): Promise<string> {
     if (this.cachedStoreId) {
+      console.log('🏪 캐시된 스토어 ID 사용:', this.cachedStoreId);
       return this.cachedStoreId;
     }
     
     const channelInfo = await this.getChannelInfo();
-    // 응답 구조: { channels: [{ channelId, channelNo, channelName, ... }] }
-    this.cachedStoreId = channelInfo?.channels?.[0]?.channelId 
-      || channelInfo?.channels?.[0]?.storeId
+    
+    if (!channelInfo || !channelInfo.channels || channelInfo.channels.length === 0) {
+      console.warn('⚠️ 채널 정보를 가져올 수 없습니다. UNKNOWN_STORE를 사용합니다.');
+      this.cachedStoreId = 'UNKNOWN_STORE';
+      return this.cachedStoreId;
+    }
+    
+    const firstChannel = channelInfo.channels[0];
+    
+    // 다양한 필드를 시도하여 스토어 ID 추출
+    this.cachedStoreId = firstChannel.channelId 
+      || firstChannel.storeId
+      || firstChannel.channelServiceId
+      || firstChannel.serviceChannelId
+      || firstChannel.smartStoreId
+      || firstChannel.channelName
       || 'UNKNOWN_STORE';
     
-    console.log('🏪 스토어 ID:', this.cachedStoreId);
+    console.log('🏪 스토어 ID 추출 완료:', this.cachedStoreId);
+    console.log('🏪 사용된 필드:', {
+      channelId: firstChannel.channelId,
+      storeId: firstChannel.storeId,
+      channelServiceId: firstChannel.channelServiceId,
+      serviceChannelId: firstChannel.serviceChannelId,
+      smartStoreId: firstChannel.smartStoreId,
+      channelName: firstChannel.channelName,
+    });
+    
     return this.cachedStoreId;
+  }
+  
+  /**
+   * 상품 데이터에서 스토어 ID 추출 (대체 방법)
+   */
+  extractStoreIdFromProduct(product: any): string | undefined {
+    const channelProduct = product.channelProducts?.[0];
+    if (!channelProduct) return undefined;
+    
+    // 상품 데이터에서 스토어 관련 필드 확인
+    return channelProduct.channelId
+      || channelProduct.storeId
+      || channelProduct.smartStoreId
+      || channelProduct.shopName
+      || channelProduct.sellerShopName;
   }
 }
 
@@ -474,6 +530,28 @@ export function transformNaverProduct(naverProduct: any, detailData?: any, store
   
   console.log('=== channelProduct 샘플 ===');
   console.log('channelProduct 전체:', JSON.stringify(channelProduct, null, 2));
+
+  // storeId가 없거나 UNKNOWN_STORE인 경우, 상품 데이터에서 추출 시도
+  if (!storeId || storeId === 'UNKNOWN_STORE') {
+    const extractedStoreId = channelProduct.channelId
+      || channelProduct.storeId
+      || channelProduct.smartStoreId
+      || channelProduct.shopName
+      || channelProduct.sellerShopName;
+    
+    if (extractedStoreId && extractedStoreId !== 'UNKNOWN_STORE') {
+      storeId = extractedStoreId;
+      console.log('✅ 상품 데이터에서 스토어 ID 추출:', storeId);
+    } else {
+      console.warn('⚠️ 스토어 ID를 찾을 수 없습니다. 상품 데이터 필드:', {
+        channelId: channelProduct.channelId,
+        storeId: channelProduct.storeId,
+        smartStoreId: channelProduct.smartStoreId,
+        shopName: channelProduct.shopName,
+        sellerShopName: channelProduct.sellerShopName,
+      });
+    }
+  }
 
   // 상품명
   const productName = channelProduct.name || '상품명 없음';
