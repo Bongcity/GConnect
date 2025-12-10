@@ -111,8 +111,13 @@ export async function POST() {
         clientSecret: naverApiKey.clientSecret,
       });
 
-      productsToSync = await fetchNaverProductsWithRetry(naverClient, 3);
+      const rawNaverProducts = await naverClient.getAllProducts(3);
+      console.log(`[Sync] 네이버 API 원본 상품 데이터 (첫 번째 상품):`, JSON.stringify(rawNaverProducts[0], null, 2));
+      
+      productsToSync = rawNaverProducts.map(transformNaverProduct);
       totalCount = productsToSync.length;
+      
+      console.log(`[Sync] 변환된 상품 데이터 (첫 번째 상품):`, JSON.stringify(productsToSync[0], null, 2));
     } catch (error: any) {
       console.error('Naver API sync failed after retries:', error);
       
@@ -194,13 +199,13 @@ export async function POST() {
           await prisma.product.update({
             where: { id: existingProduct.id },
             data: {
-              name: productData.name,
-              description: productData.description,
-              price: productData.price,
-              salePrice: productData.salePrice || null,
-              stockQuantity: productData.stockQuantity,
-              imageUrl: productData.imageUrl,
-              thumbnailUrl: productData.thumbnailUrl,
+              product_name: productData.name,
+              product_description_url: productData.description,
+              sale_price: productData.price ? BigInt(productData.price) : null,
+              discounted_sale_price: productData.salePrice ? BigInt(productData.salePrice) : null,
+              stock_quantity: productData.stockQuantity,
+              representative_product_image_url: productData.imageUrl,
+              thumbnail_url: productData.thumbnailUrl,
               category1: productData.category1,
               category2: productData.category2,
               category3: productData.category3,
@@ -214,13 +219,13 @@ export async function POST() {
           await prisma.product.create({
             data: {
               userId: session.user.id,
-              name: productData.name,
-              description: productData.description,
-              price: productData.price,
-              salePrice: productData.salePrice || null,
-              stockQuantity: productData.stockQuantity,
-              imageUrl: productData.imageUrl,
-              thumbnailUrl: productData.thumbnailUrl,
+              product_name: productData.name,
+              product_description_url: productData.description,
+              sale_price: productData.price ? BigInt(productData.price) : null,
+              discounted_sale_price: productData.salePrice ? BigInt(productData.salePrice) : null,
+              stock_quantity: productData.stockQuantity,
+              representative_product_image_url: productData.imageUrl,
+              thumbnail_url: productData.thumbnailUrl,
               category1: productData.category1,
               category2: productData.category2,
               category3: productData.category3,
