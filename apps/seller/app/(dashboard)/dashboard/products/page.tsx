@@ -314,9 +314,11 @@ export default function ProductsPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
           {filteredProducts.map((product) => (
-            <Link
+            <a
               key={product.id}
-              href={`/dashboard/products/${product.id}`}
+              href={`https://www.gconnect.kr/products/SELLER/${product.id}/${encodeURIComponent(product.name)}`}
+              target="_blank"
+              rel="noopener noreferrer"
               className="glass-card-hover p-4 group"
             >
               {/* 상품 이미지 */}
@@ -388,7 +390,7 @@ export default function ProductsPage() {
               {product.stockQuantity !== null && product.stockQuantity !== undefined && (
                 <p className="text-xs text-white/60">재고: {product.stockQuantity}개</p>
               )}
-            </Link>
+            </a>
           ))}
         </div>
       )}
