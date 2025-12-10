@@ -244,6 +244,10 @@ export class NaverApiClient {
           console.warn(`[NaverAPI] 상품 상세 조회 실패 (404): channelProductNo=${channelProductNo}`);
           return null;
         }
+        if (response.status === 429) {
+          console.warn(`[NaverAPI] 상품 상세 조회 실패 (429): 요청이 많아 서비스를 일시적으로 사용할 수 없습니다.`);
+          return null;
+        }
         const errorText = await response.text();
         let errorData;
         try {
@@ -256,7 +260,30 @@ export class NaverApiClient {
       }
 
       const data = await response.json();
-      return data.channelProduct || data;
+      const detailProduct = data.channelProduct || data;
+      
+      // 🔍 상세 API 응답 구조 로깅 (처음 1개만)
+      // @ts-ignore
+      if (typeof this.detailLogged === 'undefined') {
+        console.log('\n============ 네이버 상세 API 응답 샘플 ============');
+        console.log('전체 응답:', JSON.stringify(data, null, 2));
+        console.log('\n🔑 중요 필드 확인:');
+        console.log('- sellerCustomerNo:', detailProduct?.sellerCustomerNo);
+        console.log('- sellerNo:', detailProduct?.sellerNo);
+        console.log('- sellerName:', detailProduct?.sellerName);
+        console.log('- storeName:', detailProduct?.storeName);
+        console.log('- brandType:', detailProduct?.brandType);
+        console.log('- isBrand:', detailProduct?.isBrand);
+        console.log('- commissionRate:', detailProduct?.commissionRate);
+        console.log('- promotionCommissionRate:', detailProduct?.promotionCommissionRate);
+        console.log('- images 개수:', detailProduct?.images?.length || 0);
+        console.log('- detailContent:', detailProduct?.detailContent);
+        console.log('=================================================\n');
+        // @ts-ignore
+        this.detailLogged = true;
+      }
+      
+      return detailProduct;
     } catch (error) {
       console.error('[NaverAPI] Get channel product detail error:', error);
       return null; // 에러 발생 시 null 반환
