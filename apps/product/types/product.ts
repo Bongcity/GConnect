@@ -126,6 +126,7 @@ export function transformSellerProduct(
   product: Product & { 
     user?: { shopName: string | null } | null;
     productDetail?: ProductDetail | null;
+    source_category_name?: string | null; // NaverCategories JOIN 결과
   }
 ): UnifiedProduct {
   const detail = product.productDetail;
@@ -169,8 +170,8 @@ export function transformSellerProduct(
     // 상태
     enabled: product.enabled ?? true,
     
-    // 카테고리 정보 (ProductDetail에서 가져오기)
-    sourceCategoryName: detail?.whole_category_name || null,
+    // 카테고리 정보 (NaverCategories JOIN 결과 우선, 없으면 ProductDetail에서)
+    sourceCategoryName: product.source_category_name || detail?.whole_category_name || null,
     
     // 수집 메타 정보
     sourceKeyword: product.source_keyword,

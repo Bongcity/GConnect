@@ -441,19 +441,41 @@ export async function getProductById(id: string): Promise<UnifiedProduct | null>
       const idString = id.startsWith('SELLER_') ? id.replace('SELLER_', '') : id;
       const numericId = parseInt(idString);
       
-      const product = await prisma.product.findUnique({
-        where: { id: BigInt(numericId) as any },
-        include: {
-          user: {
-            select: {
-              shopName: true,
-            },
-          },
-          productDetail: true, // ProductDetail 포함
-        },
+      // GLOBAL과 동일하게 NaverCategories와 JOIN하여 카테고리 경로 가져오기
+      const products = await prisma.$queryRaw`
+        SELECT 
+          p.*,
+          CASE 
+            WHEN nc.category_3 IS NOT NULL THEN nc.category_1 + ' > ' + nc.category_2 + ' > ' + nc.category_3
+            WHEN nc.category_2 IS NOT NULL THEN nc.category_1 + ' > ' + nc.category_2
+            WHEN nc.category_1 IS NOT NULL THEN nc.category_1
+            ELSE NULL
+          END as source_category_name
+        FROM affiliate_products p
+        LEFT JOIN NaverCategories nc ON p.source_cid = nc.cid
+        WHERE p.id = ${BigInt(numericId)}
+      ` as any[];
+      
+      if (products.length === 0) return null;
+      
+      const product = products[0];
+      
+      // ProductDetail과 User 정보를 별도로 조회
+      // @ts-ignore - Prisma generate 후 자동 해결됨
+      const productDetail = await prisma.productDetail.findUnique({
+        where: { product_id: BigInt(numericId) },
       });
       
-      return product ? transformSellerProduct(product) : null;
+      const user = await prisma.user.findUnique({
+        where: { id: product.userId },
+        select: { shopName: true },
+      });
+      
+      return transformSellerProduct({
+        ...product,
+        productDetail,
+        user,
+      });
     }
   } catch (error) {
     console.error('[getProductById] 오류:', error);

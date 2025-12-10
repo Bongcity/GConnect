@@ -279,10 +279,18 @@ export default function ProductDetail({ product, relatedProducts = [] }: Product
                 {/* 카테고리 */}
                 <div className="flex items-start gap-4">
                   <span className="text-white/60 min-w-[80px]">카테고리</span>
-                  <span className="text-white/90">
-                    {/* SELLER: detail 우선, GLOBAL: sourceCategoryName */}
-                    {detail?.wholeCategoryName || product.sourceCategoryName || product.sourceCid || '-'}
-                  </span>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-white/90">
+                      {/* SELLER & GLOBAL 모두 NaverCategories 통일 */}
+                      {product.sourceCategoryName || product.sourceCid || '-'}
+                    </span>
+                    {/* SELLER의 상세 카테고리 정보가 있으면 추가 표시 */}
+                    {detail?.wholeCategoryName && detail.wholeCategoryName !== product.sourceCategoryName && (
+                      <span className="text-xs text-white/40">
+                        상세: {detail.wholeCategoryName}
+                      </span>
+                    )}
+                  </div>
                 </div>
                 
                 {/* 브랜드 (SELLER 전용) */}

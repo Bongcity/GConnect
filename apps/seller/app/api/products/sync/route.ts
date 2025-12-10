@@ -189,7 +189,23 @@ export async function POST() {
           continue;
         }
 
-        // 기존 상품 확인 (naverProductId로 중복 체크)
+        // 1단계: 카테고리 먼저 처리하여 source_cid 얻기
+        let sourceCid: string | null = null;
+        if (productData.detail?.wholeCategoryName && productData.detail?.wholeCategoryId) {
+          try {
+            const categoryResult = await processNaverCategory(
+              productData.detail.wholeCategoryName,
+              productData.detail.wholeCategoryId
+            );
+            sourceCid = categoryResult?.cid || null;
+            console.log(`[Sync] 카테고리 처리 완료: ${sourceCid}`);
+          } catch (categoryError: any) {
+            console.error('[Sync] 카테고리 생성 실패:', categoryError.message);
+            // 카테고리 생성 실패해도 상품은 저장
+          }
+        }
+
+        // 2단계: 기존 상품 확인 (naverProductId로 중복 체크)
         const existingProduct = await prisma.product.findFirst({
           where: {
             userId: session.user.id,
@@ -209,6 +225,7 @@ export async function POST() {
               discounted_sale_price: productData.salePrice ? BigInt(productData.salePrice) : null,
               representative_product_image_url: productData.imageUrl || null,
               product_url: productData.productUrl || null,
+              source_cid: sourceCid, // ✨ 카테고리 ID 설정
               enabled: true,
               updated_at: new Date(),
             },
@@ -224,6 +241,7 @@ export async function POST() {
               representative_product_image_url: productData.imageUrl || null,
               product_url: productData.productUrl || null,
               product_status: 'ON_SALE',
+              source_cid: sourceCid, // ✨ 카테고리 ID 설정
               enabled: true,
               created_at: new Date(),
               updated_at: new Date(),
@@ -309,19 +327,6 @@ export async function POST() {
           } catch (detailError: any) {
             console.error('[Sync] ProductDetail 저장 실패:', detailError.message);
             // ProductDetail 저장 실패해도 상품은 저장되었으므로 계속 진행
-          }
-        }
-
-        // 카테고리 자동 생성
-        if (productData.detail?.wholeCategoryName && productData.detail?.wholeCategoryId) {
-          try {
-            await processNaverCategory(
-              productData.detail.wholeCategoryName,
-              productData.detail.wholeCategoryId
-            );
-          } catch (categoryError: any) {
-            console.error('[Sync] 카테고리 생성 실패:', categoryError.message);
-            // 카테고리 생성 실패해도 상품은 저장되었으므로 계속 진행
           }
         }
 
