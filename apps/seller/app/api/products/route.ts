@@ -16,7 +16,7 @@ export async function GET() {
     }
 
     const products = await prisma.product.findMany({
-      where: { userId: session.user.id },
+      where: { user_id: session.user.id },
       orderBy: { created_at: 'desc' },
     });
 
