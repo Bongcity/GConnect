@@ -260,24 +260,26 @@ export class NaverApiClient {
       }
 
       const data = await response.json();
-      const detailProduct = data.channelProduct || data;
+      
+      // ✅ 네이버 API 응답 구조: { originProduct: {...}, smartstoreChannelProduct: {...} }
+      const detailProduct = data;
       
       // 🔍 상세 API 응답 구조 로깅 (처음 1개만)
       // @ts-ignore
       if (typeof this.detailLogged === 'undefined') {
         console.log('\n============ 네이버 상세 API 응답 샘플 ============');
-        console.log('전체 응답:', JSON.stringify(data, null, 2));
-        console.log('\n🔑 중요 필드 확인:');
-        console.log('- sellerCustomerNo:', detailProduct?.sellerCustomerNo);
-        console.log('- sellerNo:', detailProduct?.sellerNo);
-        console.log('- sellerName:', detailProduct?.sellerName);
-        console.log('- storeName:', detailProduct?.storeName);
-        console.log('- brandType:', detailProduct?.brandType);
-        console.log('- isBrand:', detailProduct?.isBrand);
-        console.log('- commissionRate:', detailProduct?.commissionRate);
-        console.log('- promotionCommissionRate:', detailProduct?.promotionCommissionRate);
-        console.log('- images 개수:', detailProduct?.images?.length || 0);
-        console.log('- detailContent:', detailProduct?.detailContent);
+        console.log('📦 originProduct 존재:', !!data.originProduct);
+        console.log('📦 smartstoreChannelProduct 존재:', !!data.smartstoreChannelProduct);
+        
+        if (data.originProduct) {
+          console.log('\n✅ originProduct.images.optionalImages 개수:', data.originProduct.images?.optionalImages?.length || 0);
+          if (data.originProduct.images?.optionalImages?.[0]) {
+            console.log('   샘플 이미지 URL:', data.originProduct.images.optionalImages[0].url);
+          }
+          console.log('✅ originProduct.detailContent:', data.originProduct.detailContent ? `exists (${data.originProduct.detailContent.length} chars)` : 'undefined');
+        }
+        
+        console.log('\n❌ 제공되지 않는 필드들: sellerCustomerNo, storeName, brandType, commissionRate 등');
         console.log('=================================================\n');
         // @ts-ignore
         this.detailLogged = true;
@@ -458,23 +460,26 @@ export function transformNaverProduct(naverProduct: any, detailData?: any): Tran
   });
   
   // 스토어 정보 추출 (상세 정보 우선)
-  const storeId = detailData?.sellerCustomerNo?.toString()
-    || detailData?.sellerNo?.toString()
+  // ❌ 네이버 API에서 sellerCustomerNo, sellerName 필드를 제공하지 않음
+  // ⚠️  현재는 brandName만 사용 가능 (channelProduct.brandName)
+  const storeId = detailData?.originProduct?.sellerCustomerNo?.toString()
+    || detailData?.originProduct?.sellerNo?.toString()
     || naverProduct.sellerCustomerNo?.toString() 
     || channelProduct.sellerCustomerNo?.toString()
     || naverProduct.sellerNo?.toString()
     || channelProduct.sellerNo?.toString();
   
-  const storeName = detailData?.sellerName
-    || detailData?.storeName
+  const storeName = detailData?.originProduct?.sellerName
+    || detailData?.originProduct?.storeName
     || naverProduct.sellerName 
     || channelProduct.sellerName
     || naverProduct.storeName
-    || channelProduct.storeName;
+    || channelProduct.storeName
+    || channelProduct.brandName; // ✅ brandName은 제공됨
   
-  const brandStore = detailData?.brandType === 'BRAND'
-    || detailData?.isBrand === true
-    || detailData?.isBrandStore === true
+  const brandStore = detailData?.originProduct?.brandType === 'BRAND'
+    || detailData?.originProduct?.isBrand === true
+    || detailData?.originProduct?.isBrandStore === true
     || channelProduct.brandType === 'BRAND' 
     || channelProduct.isBrand === true
     || channelProduct.isBrandStore === true;
@@ -483,19 +488,19 @@ export function transformNaverProduct(naverProduct: any, detailData?: any): Tran
     storeId, 
     storeName, 
     brandStore,
-    'detailData 사용': !!detailData,
+    'detailData 사용': !!detailData?.originProduct,
     '원본필드들': {
-      'detailData?.sellerCustomerNo': detailData?.sellerCustomerNo,
-      'detailData?.sellerName': detailData?.sellerName,
-      'detailData?.brandType': detailData?.brandType,
-      'naverProduct.sellerCustomerNo': naverProduct.sellerCustomerNo,
-      'channelProduct.sellerCustomerNo': channelProduct.sellerCustomerNo,
+      'detailData?.originProduct?.sellerCustomerNo': detailData?.originProduct?.sellerCustomerNo,
+      'detailData?.originProduct?.sellerName': detailData?.originProduct?.sellerName,
+      'detailData?.originProduct?.brandType': detailData?.originProduct?.brandType,
+      'channelProduct.brandName': channelProduct.brandName,
     }
   });
   
   // 추가 이미지 배열 처리 (상세 정보 우선)
+  // ✅ 네이버 상세 API 응답 구조: detailData.originProduct.images.optionalImages[]
   const otherImages: string[] = [];
-  const imageSources = detailData?.images || channelProduct.images;
+  const imageSources = detailData?.originProduct?.images?.optionalImages || channelProduct.images;
   if (imageSources && Array.isArray(imageSources)) {
     imageSources.forEach((img: any) => {
       const imgUrl = img.url || img.imageUrl;
@@ -508,15 +513,14 @@ export function transformNaverProduct(naverProduct: any, detailData?: any): Tran
   console.log('📸 추가 이미지:', { 
     count: otherImages.length, 
     images: otherImages.slice(0, 2),
-    'detailData 사용': !!detailData?.images,
+    'detailData 사용': !!detailData?.originProduct?.images?.optionalImages,
     '원본 images 필드': imageSources?.length || 0
   });
   
-  // 상세 설명 URL (상세 정보 우선)
-  const descriptionUrl = detailData?.detailContent?.url
-    || detailData?.detailContentUrl
-    || detailData?.pcDetailContent?.url
-    || channelProduct.detailContent?.url 
+  // 상세 설명 URL
+  // ❌ detailData.originProduct.detailContent는 HTML이지 URL이 아님
+  // ✅ 기본 URL 구성: https://smartstore.naver.com/{channelProductNo}/detail
+  const descriptionUrl = channelProduct.detailContent?.url 
     || channelProduct.detailContentUrl
     || channelProduct.pcDetailContent?.url
     || (channelProduct.channelProductNo 
@@ -525,20 +529,20 @@ export function transformNaverProduct(naverProduct: any, detailData?: any): Tran
   
   console.log('📝 상세 URL:', { 
     descriptionUrl,
-    'detailData 사용': !!detailData,
+    'HTML detailContent 존재': !!detailData?.originProduct?.detailContent,
     '원본필드들': {
-      'detailData?.detailContent?.url': detailData?.detailContent?.url,
       'channelProduct.detailContent?.url': channelProduct.detailContent?.url,
     }
   });
   
   // 수수료 정보 (상세 정보 우선)
-  const commissionRate = detailData?.commissionRate
+  // ❌ 네이버 API에서 commissionRate, promotionCommissionRate 필드를 제공하지 않음
+  const commissionRate = detailData?.originProduct?.commissionRate
     || channelProduct.commissionRate 
     || naverProduct.commissionRate
     || 0;
   
-  const promotionCommissionRate = detailData?.promotionCommissionRate
+  const promotionCommissionRate = detailData?.originProduct?.promotionCommissionRate
     || channelProduct.promotionCommissionRate 
     || naverProduct.promotionCommissionRate
     || 0;
@@ -546,24 +550,28 @@ export function transformNaverProduct(naverProduct: any, detailData?: any): Tran
   console.log('💰 수수료 정보:', { 
     commissionRate, 
     promotionCommissionRate,
-    'detailData 사용': !!detailData,
+    'detailData 사용': !!detailData?.originProduct,
     '원본필드들': {
-      'detailData?.commissionRate': detailData?.commissionRate,
-      'detailData?.promotionCommissionRate': detailData?.promotionCommissionRate,
+      'detailData?.originProduct?.commissionRate': detailData?.originProduct?.commissionRate,
+      'detailData?.originProduct?.promotionCommissionRate': detailData?.originProduct?.promotionCommissionRate,
       'channelProduct.commissionRate': channelProduct.commissionRate,
     }
   });
   
   // 프로모션 정보 JSON 변환 (상세 정보 우선)
-  const promotions = detailData?.promotions || channelProduct.promotions || naverProduct.promotions || [];
+  // ❌ 네이버 API에서 promotions 필드를 제공하지 않음
+  const promotions = detailData?.originProduct?.promotions 
+    || channelProduct.promotions 
+    || naverProduct.promotions 
+    || [];
   const promotionJson = promotions.length > 0 ? JSON.stringify(promotions) : null;
   
   console.log('🎁 프로모션 정보:', { 
     promotionCount: promotions.length,
     promotionJson: promotionJson?.substring(0, 100),
-    'detailData 사용': !!detailData,
+    'detailData 사용': !!detailData?.originProduct,
     '원본필드들': {
-      'detailData?.promotions': detailData?.promotions?.length || 0,
+      'detailData?.originProduct?.promotions': detailData?.originProduct?.promotions?.length || 0,
       'channelProduct.promotions': channelProduct.promotions?.length || 0,
     }
   });
