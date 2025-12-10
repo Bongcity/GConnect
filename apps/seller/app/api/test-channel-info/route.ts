@@ -8,7 +8,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { prisma } from '@gconnect/db';
 import { NaverApiClient } from '@/lib/naver-api';
 import { getDecryptedNaverApiKey } from '@/lib/naver-utils';
 
@@ -28,29 +27,7 @@ export async function GET(request: NextRequest) {
     const userId = session.user.id;
     console.log(`   - 사용자 ID: ${userId}`);
 
-    // 2. 사용자 정보 조회
-    const user = await prisma.users.findUnique({
-      where: { id: userId },
-      select: {
-        id: true,
-        email: true,
-        naverClientId: true,
-        naverClientSecret: true,
-      },
-    });
-
-    if (!user) {
-      return NextResponse.json(
-        { error: '사용자를 찾을 수 없습니다.' },
-        { status: 404 }
-      );
-    }
-
-    console.log(`   - Email: ${user.email}`);
-    console.log(`   - Client ID: ${user.naverClientId}`);
-    console.log(`   - Encrypted Secret: ${user.naverClientSecret?.substring(0, 50)}...`);
-
-    // 3. API 키 복호화
+    // 2. API 키 복호화 (getDecryptedNaverApiKey 내부에서 DB 조회)
     const apiKey = await getDecryptedNaverApiKey(userId);
     if (!apiKey) {
       return NextResponse.json(
