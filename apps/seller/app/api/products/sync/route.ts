@@ -112,12 +112,28 @@ export async function POST() {
       });
 
       const rawNaverProducts = await naverClient.getAllProducts(3);
-      console.log(`[Sync] 네이버 API 원본 상품 데이터 (첫 번째 상품):`, JSON.stringify(rawNaverProducts[0], null, 2));
+      
+      console.log('========================================');
+      console.log('[Sync] 네이버 API 응답 분석');
+      console.log('========================================');
+      console.log(`[Sync] 총 상품 수: ${rawNaverProducts.length}`);
+      
+      if (rawNaverProducts.length > 0) {
+        console.log(`[Sync] 첫 번째 상품 원본 데이터 (전체):`);
+        console.log(JSON.stringify(rawNaverProducts[0], null, 2));
+        console.log('----------------------------------------');
+      } else {
+        console.error('[Sync] ⚠️ 네이버 API에서 상품을 가져오지 못했습니다!');
+      }
       
       productsToSync = rawNaverProducts.map(transformNaverProduct);
       totalCount = productsToSync.length;
       
-      console.log(`[Sync] 변환된 상품 데이터 (첫 번째 상품):`, JSON.stringify(productsToSync[0], null, 2));
+      if (productsToSync.length > 0) {
+        console.log(`[Sync] 변환된 첫 번째 상품 데이터:`);
+        console.log(JSON.stringify(productsToSync[0], null, 2));
+      }
+      console.log('========================================');
     } catch (error: any) {
       console.error('Naver API sync failed after retries:', error);
       
@@ -176,22 +192,32 @@ export async function POST() {
     // 상품 동기화 - 실제 DB 스키마(affiliate_products)에 맞춰 저장
     for (const productData of productsToSync) {
       try {
-        // 기존 상품 확인 (product_name으로 중복 체크)
-        const existingProduct = productData.name
-          ? await prisma.product.findFirst({
-              where: {
-                userId: session.user.id,
-                product_name: productData.name,
-              },
-            })
-          : null;
+        // 필수 데이터 검증 - 상품명과 고유ID가 없으면 스킵
+        if (!productData.name || productData.name === '상품명 없음' || !productData.naverProductId) {
+          console.warn('[Sync] 상품 데이터 불충분, 스킵:', { 
+            name: productData.name, 
+            id: productData.naverProductId,
+            rawData: JSON.stringify(productData).substring(0, 200) 
+          });
+          failed++;
+          errors.push('상품 데이터 불충분 (상품명 또는 ID 누락)');
+          continue;
+        }
+
+        // 기존 상품 확인 (naverProductId로 중복 체크)
+        const existingProduct = await prisma.product.findFirst({
+          where: {
+            userId: session.user.id,
+            product_name: productData.name,
+          },
+        });
 
         if (existingProduct) {
           // 기존 상품 업데이트
           await prisma.product.update({
             where: { id: existingProduct.id },
             data: {
-              product_name: productData.name || null,
+              product_name: productData.name,
               sale_price: productData.price ? BigInt(productData.price) : null,
               discounted_sale_price: productData.salePrice ? BigInt(productData.salePrice) : null,
               representative_product_image_url: productData.imageUrl || null,
@@ -206,7 +232,7 @@ export async function POST() {
           await prisma.product.create({
             data: {
               userId: session.user.id,
-              product_name: productData.name || '상품명 없음',
+              product_name: productData.name,
               sale_price: productData.price ? BigInt(productData.price) : null,
               discounted_sale_price: productData.salePrice ? BigInt(productData.salePrice) : null,
               representative_product_image_url: productData.imageUrl || null,
