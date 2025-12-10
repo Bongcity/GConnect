@@ -39,12 +39,8 @@ export default function ProductDetailPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState({
-    name: '',
-    description: '',
-    price: 0,
-    salePrice: 0,
-    stockQuantity: 0,
     isActive: true,
+    isGoogleExposed: false,
   });
 
   // 상품 조회
@@ -56,12 +52,8 @@ export default function ProductDetailPage() {
           const data = await response.json();
           setProduct(data.product);
           setEditData({
-            name: data.product.name,
-            description: data.product.description || '',
-            price: data.product.price,
-            salePrice: data.product.salePrice || 0,
-            stockQuantity: data.product.stockQuantity || 0,
             isActive: data.product.isActive,
+            isGoogleExposed: data.product.isGoogleExposed,
           });
         } else {
           alert('상품을 찾을 수 없습니다.');
@@ -235,79 +227,38 @@ export default function ProductDetailPage() {
           {isEditing ? (
             /* 수정 모드 */
             <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-white/80 mb-2">
-                  상품명 *
-                </label>
-                <input
-                  type="text"
-                  value={editData.name}
-                  onChange={(e) => setEditData({ ...editData, name: e.target.value })}
-                  className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white"
-                />
+              <div className="p-4 rounded-xl bg-yellow-500/10 border border-yellow-500/20 mb-4">
+                <p className="text-sm text-yellow-400">
+                  ℹ️ 네이버에서 동기화된 상품입니다. 상품명, 가격 등은 네이버에서 자동으로 업데이트됩니다.
+                </p>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-white/80 mb-2">
-                  설명
-                </label>
-                <textarea
-                  value={editData.description}
-                  onChange={(e) => setEditData({ ...editData, description: e.target.value })}
-                  rows={4}
-                  className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white resize-none"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-white/80 mb-2">
-                    가격 *
-                  </label>
+              <div className="space-y-3">
+                <div className="flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/10">
                   <input
-                    type="number"
-                    value={editData.price}
-                    onChange={(e) => setEditData({ ...editData, price: Number(e.target.value) })}
-                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white"
+                    type="checkbox"
+                    id="isActive"
+                    checked={editData.isActive}
+                    onChange={(e) => setEditData({ ...editData, isActive: e.target.checked })}
+                    className="w-5 h-5 rounded"
                   />
+                  <label htmlFor="isActive" className="text-white cursor-pointer">
+                    상품 활성화
+                  </label>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-white/80 mb-2">
-                    할인가
-                  </label>
+                <div className="flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/10">
                   <input
-                    type="number"
-                    value={editData.salePrice}
-                    onChange={(e) => setEditData({ ...editData, salePrice: Number(e.target.value) })}
-                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white"
+                    type="checkbox"
+                    id="isGoogleExposed"
+                    checked={editData.isGoogleExposed}
+                    onChange={(e) => setEditData({ ...editData, isGoogleExposed: e.target.checked })}
+                    className="w-5 h-5 rounded"
                   />
+                  <label htmlFor="isGoogleExposed" className="text-white cursor-pointer">
+                    구글 쇼핑에 노출
+                  </label>
                 </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-white/80 mb-2">
-                  재고
-                </label>
-                <input
-                  type="number"
-                  value={editData.stockQuantity}
-                  onChange={(e) => setEditData({ ...editData, stockQuantity: Number(e.target.value) })}
-                  className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white"
-                />
-              </div>
-
-              <div className="flex items-center gap-3">
-                <input
-                  type="checkbox"
-                  id="isActive"
-                  checked={editData.isActive}
-                  onChange={(e) => setEditData({ ...editData, isActive: e.target.checked })}
-                  className="w-5 h-5 rounded"
-                />
-                <label htmlFor="isActive" className="text-white">
-                  상품 활성화
-                </label>
               </div>
 
               <button onClick={handleUpdate} className="w-full btn-neon">
