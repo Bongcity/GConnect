@@ -40,6 +40,7 @@ async function sleep(ms: number) {
 
 /**
  * 재시도 로직이 포함된 네이버 API 상품 가져오기
+ * 각 상품의 상세 정보도 함께 조회
  */
 async function fetchNaverProductsWithRetry(
   naverClient: NaverApiClient,
@@ -52,7 +53,35 @@ async function fetchNaverProductsWithRetry(
       console.log(`[Sync] 네이버 API 호출 시도 ${attempt}/${MAX_RETRIES}`);
       const naverProducts = await naverClient.getAllProducts(maxPages);
       console.log(`[Sync] 성공: ${naverProducts.length}개 상품 가져옴`);
-      return naverProducts.map(transformNaverProduct);
+      
+      // 상세 정보 조회 (병렬 처리, 5개씩)
+      console.log(`[Sync] 상품 상세 정보 조회 시작...`);
+      const BATCH_SIZE = 5;
+      const transformedProducts: any[] = [];
+      
+      for (let i = 0; i < naverProducts.length; i += BATCH_SIZE) {
+        const batch = naverProducts.slice(i, i + BATCH_SIZE);
+        const batchResults = await Promise.all(
+          batch.map(async (product) => {
+            const channelProductNo = product.channelProducts?.[0]?.channelProductNo;
+            if (!channelProductNo) {
+              console.warn(`[Sync] channelProductNo 없음:`, product);
+              return transformNaverProduct(product);
+            }
+            
+            // 상세 정보 조회
+            const detailData = await naverClient.getChannelProductDetail(channelProductNo.toString());
+            return transformNaverProduct(product, detailData);
+          })
+        );
+        transformedProducts.push(...batchResults);
+        
+        // 진행 상황 출력
+        console.log(`[Sync] 상세 정보 조회 진행: ${Math.min(i + BATCH_SIZE, naverProducts.length)}/${naverProducts.length}`);
+      }
+      
+      console.log(`[Sync] 상세 정보 조회 완료: ${transformedProducts.length}개`);
+      return transformedProducts;
     } catch (error: any) {
       lastError = error;
       const errorType = classifyError(error);
@@ -112,11 +141,11 @@ export async function POST() {
         clientSecret: naverApiKey.clientSecret,
       });
 
-      const rawNaverProducts = await naverClient.getAllProducts(3);
-      console.log(`[Sync] 네이버 API에서 ${rawNaverProducts.length}개 상품 가져옴`);
-      
-      productsToSync = rawNaverProducts.map(transformNaverProduct);
+      // fetchNaverProductsWithRetry가 이미 변환된 상품을 반환
+      productsToSync = await fetchNaverProductsWithRetry(naverClient, 3);
       totalCount = productsToSync.length;
+      
+      console.log(`[Sync] ${totalCount}개 상품 변환 완료`);
       
       console.log(`[Sync] ${productsToSync.length}개 상품 변환 완료`);
     } catch (error: any) {
