@@ -298,6 +298,18 @@ export interface TransformedProduct {
   naverProductId: string;
   naverProductNo?: string;
   categoryPath?: string;
+  
+  // affiliate_products 테이블 추가 필드
+  storeId?: string;                    // 상점 ID
+  storeName?: string;                  // 상점명
+  brandStore?: boolean;                // 브랜드 스토어 여부
+  discountedRate?: number;             // 할인율 (%)
+  commissionRate?: number;             // 수수료율
+  promotionCommissionRate?: number;    // 프로모션 수수료율
+  otherImageUrls?: string[];           // 추가 이미지 배열
+  descriptionUrl?: string;             // 상세 설명 URL
+  promotionJson?: string;              // 프로모션 정보 (JSON)
+  
   detail?: ProductDetail;
 }
 
@@ -341,21 +353,68 @@ export function transformNaverProduct(naverProduct: any): TransformedProduct {
     ? `https://smartstore.naver.com/product/${channelProduct.channelProductNo}`
     : undefined;
 
-  // 할인율 계산
+  // 할인율 계산 (affiliate_products.discounted_rate에 저장)
   const originalPrice = channelProduct.salePrice || 0;
   const discountedPrice = channelProduct.discountedPrice || channelProduct.salePrice || 0;
   const discountRate = originalPrice > 0 && discountedPrice < originalPrice
-    ? ((originalPrice - discountedPrice) / originalPrice * 100)
+    ? parseFloat(((originalPrice - discountedPrice) / originalPrice * 100).toFixed(2))
     : 0;
+  
+  // 스토어 정보 추출
+  const storeId = naverProduct.sellerCustomerNo?.toString() 
+    || channelProduct.sellerCustomerNo?.toString()
+    || naverProduct.sellerNo?.toString()
+    || channelProduct.sellerNo?.toString();
+  
+  const storeName = naverProduct.sellerName 
+    || channelProduct.sellerName
+    || naverProduct.storeName
+    || channelProduct.storeName;
+  
+  const brandStore = channelProduct.brandType === 'BRAND' 
+    || channelProduct.isBrand === true
+    || channelProduct.isBrandStore === true;
+  
+  // 추가 이미지 배열 처리
+  const otherImages: string[] = [];
+  if (channelProduct.images && Array.isArray(channelProduct.images)) {
+    channelProduct.images.forEach((img: any) => {
+      const imgUrl = img.url || img.imageUrl;
+      if (imgUrl && imgUrl !== imageUrl) { // 대표 이미지 제외
+        otherImages.push(imgUrl);
+      }
+    });
+  }
+  
+  // 상세 설명 URL
+  const descriptionUrl = channelProduct.detailContent?.url 
+    || channelProduct.detailContentUrl
+    || channelProduct.pcDetailContent?.url
+    || (channelProduct.channelProductNo 
+      ? `https://smartstore.naver.com/${channelProduct.channelProductNo}/detail`
+      : undefined);
+  
+  // 수수료 정보 (있는 경우만)
+  const commissionRate = channelProduct.commissionRate 
+    || naverProduct.commissionRate
+    || 0;
+  
+  const promotionCommissionRate = channelProduct.promotionCommissionRate 
+    || naverProduct.promotionCommissionRate
+    || 0;
+  
+  // 프로모션 정보 JSON 변환
+  const promotions = channelProduct.promotions || naverProduct.promotions || [];
+  const promotionJson = promotions.length > 0 ? JSON.stringify(promotions) : null;
 
-  // 상세 정보 추출
+  // 상세 정보 추출 (discount_rate 제거 - affiliate_products.discounted_rate 사용)
   const detail: ProductDetail = {
     originProductNo: naverProduct.originProductNo || 0,
     channelProductNo: channelProduct.channelProductNo || 0,
     statusType: channelProduct.statusType || '',
     displayStatus: channelProduct.channelProductDisplayStatusType || '',
     originalPrice: originalPrice,
-    discountRate: discountRate,
+    discountRate: 0, // deprecated - affiliate_products.discounted_rate 사용
     mobileDiscountedPrice: channelProduct.mobileDiscountedPrice || discountedPrice,
     deliveryAttributeType: channelProduct.deliveryAttributeType || '',
     deliveryFee: channelProduct.deliveryFee || 0,
@@ -389,6 +448,18 @@ export function transformNaverProduct(naverProduct: any): TransformedProduct {
     categoryPath: wholeCategoryName,
     naverProductId: naverProduct.originProductNo?.toString() || `UNKNOWN_${Date.now()}`,
     naverProductNo: channelProduct.channelProductNo?.toString(),
+    
+    // affiliate_products 테이블 추가 필드
+    storeId: storeId,
+    storeName: storeName,
+    brandStore: brandStore,
+    discountedRate: discountRate,
+    commissionRate: commissionRate > 0 ? commissionRate : undefined,
+    promotionCommissionRate: promotionCommissionRate > 0 ? promotionCommissionRate : undefined,
+    otherImageUrls: otherImages.length > 0 ? otherImages : undefined,
+    descriptionUrl: descriptionUrl,
+    promotionJson: promotionJson || undefined,
+    
     detail: detail,
   };
 

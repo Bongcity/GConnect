@@ -223,9 +223,29 @@ export async function POST() {
               product_name: productData.name,
               sale_price: productData.price ? BigInt(productData.price) : null,
               discounted_sale_price: productData.salePrice ? BigInt(productData.salePrice) : null,
+              discounted_rate: productData.discountedRate || null, // 할인율
               representative_product_image_url: productData.imageUrl || null,
               product_url: productData.productUrl || null,
-              source_cid: sourceCid, // ✨ 카테고리 ID 설정
+              
+              // 스토어 정보
+              affiliate_store_id: productData.storeId ? BigInt(productData.storeId) : null,
+              store_name: productData.storeName || null,
+              brand_store: productData.brandStore || false,
+              
+              // 수수료 정보
+              commission_rate: productData.commissionRate || null,
+              promotion_commission_rate: productData.promotionCommissionRate || null,
+              
+              // 추가 이미지 (JSON 문자열로 저장)
+              other_product_image_urls: productData.otherImageUrls && productData.otherImageUrls.length > 0
+                ? JSON.stringify(productData.otherImageUrls)
+                : null,
+              
+              // 상세 URL 및 프로모션
+              product_description_url: productData.descriptionUrl || null,
+              promotion_json: productData.promotionJson || null,
+              
+              source_cid: sourceCid,
               enabled: true,
               updated_at: new Date(),
             },
@@ -238,10 +258,30 @@ export async function POST() {
               product_name: productData.name,
               sale_price: productData.price ? BigInt(productData.price) : null,
               discounted_sale_price: productData.salePrice ? BigInt(productData.salePrice) : null,
+              discounted_rate: productData.discountedRate || null, // 할인율
               representative_product_image_url: productData.imageUrl || null,
               product_url: productData.productUrl || null,
               product_status: 'ON_SALE',
-              source_cid: sourceCid, // ✨ 카테고리 ID 설정
+              
+              // 스토어 정보
+              affiliate_store_id: productData.storeId ? BigInt(productData.storeId) : null,
+              store_name: productData.storeName || null,
+              brand_store: productData.brandStore || false,
+              
+              // 수수료 정보
+              commission_rate: productData.commissionRate || null,
+              promotion_commission_rate: productData.promotionCommissionRate || null,
+              
+              // 추가 이미지 (JSON 문자열로 저장)
+              other_product_image_urls: productData.otherImageUrls && productData.otherImageUrls.length > 0
+                ? JSON.stringify(productData.otherImageUrls)
+                : null,
+              
+              // 상세 URL 및 프로모션
+              product_description_url: productData.descriptionUrl || null,
+              promotion_json: productData.promotionJson || null,
+              
+              source_cid: sourceCid,
               enabled: true,
               created_at: new Date(),
               updated_at: new Date(),
@@ -266,7 +306,8 @@ export async function POST() {
                   status_type: productData.detail.statusType || null,
                   display_status: productData.detail.displayStatus || null,
                   original_price: productData.detail.originalPrice ? BigInt(productData.detail.originalPrice) : null,
-                  discount_rate: productData.detail.discountRate || null,
+                  // discount_rate: 제거됨 - affiliate_products.discounted_rate 사용
+                  discount_rate: 0, // deprecated
                   mobile_discounted_price: productData.detail.mobileDiscountedPrice ? BigInt(productData.detail.mobileDiscountedPrice) : null,
                   delivery_attribute_type: productData.detail.deliveryAttributeType || null,
                   delivery_fee: productData.detail.deliveryFee ? BigInt(productData.detail.deliveryFee) : null,
@@ -299,7 +340,8 @@ export async function POST() {
                   status_type: productData.detail.statusType || null,
                   display_status: productData.detail.displayStatus || null,
                   original_price: productData.detail.originalPrice ? BigInt(productData.detail.originalPrice) : null,
-                  discount_rate: productData.detail.discountRate || null,
+                  // discount_rate: 제거됨 - affiliate_products.discounted_rate 사용
+                  discount_rate: 0, // deprecated
                   mobile_discounted_price: productData.detail.mobileDiscountedPrice ? BigInt(productData.detail.mobileDiscountedPrice) : null,
                   delivery_attribute_type: productData.detail.deliveryAttributeType || null,
                   delivery_fee: productData.detail.deliveryFee ? BigInt(productData.detail.deliveryFee) : null,
