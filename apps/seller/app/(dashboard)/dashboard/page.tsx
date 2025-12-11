@@ -11,6 +11,7 @@ import {
   ArrowUpIcon,
 } from '@heroicons/react/24/outline';
 import SyncScheduleCard from '@/components/dashboard/SyncScheduleCard';
+import InquiryModal from '@/components/inquiry/InquiryModal';
 
 interface SubscriptionData {
   subscription: any;
@@ -41,6 +42,7 @@ export default function DashboardPage() {
   const [subscriptionData, setSubscriptionData] = useState<SubscriptionData | null>(null);
   const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [showInquiryModal, setShowInquiryModal] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -229,47 +231,129 @@ export default function DashboardPage() {
         <h2 className="text-2xl font-bold text-white mb-6">빠른 시작 가이드</h2>
         
         <div className="space-y-4">
-          <div className="flex items-start gap-4 p-4 rounded-xl bg-white/5 border border-white/10">
-            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-brand-neon/20 flex items-center justify-center">
-              <span className="text-brand-neon font-bold">1</span>
+          {/* 1. 네이버 스마트스토어 연결 */}
+          <div className={`flex items-start gap-4 p-4 rounded-xl bg-white/5 border ${
+            dashboardStats?.naverApiConnected 
+              ? 'border-green-500/30 bg-green-500/5' 
+              : 'border-white/10'
+          }`}>
+            <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
+              dashboardStats?.naverApiConnected
+                ? 'bg-green-500/20'
+                : 'bg-brand-neon/20'
+            }`}>
+              {dashboardStats?.naverApiConnected ? (
+                <CheckCircleIcon className="w-5 h-5 text-green-400" />
+              ) : (
+                <span className="text-brand-neon font-bold">1</span>
+              )}
             </div>
             <div className="flex-1">
               <h3 className="text-lg font-semibold text-white mb-2">
                 네이버 스마트스토어 연결
               </h3>
-              <p className="text-white/60 mb-3">
-                상점 ID 또는 API 키를 입력하여 스마트스토어를 연결하세요.
+              <p className={`mb-3 ${
+                dashboardStats?.naverApiConnected ? 'text-green-400' : 'text-white/60'
+              }`}>
+                {dashboardStats?.naverApiConnected 
+                  ? '✅ 연결이 완료되었습니다!' 
+                  : '상점 ID 또는 API 키를 입력하여 스마트스토어를 연결하세요.'}
               </p>
-              <Link href="/dashboard/settings" className="btn-neon text-sm inline-block">
-                연결하기
+              <Link 
+                href="/dashboard/settings" 
+                className={`${
+                  dashboardStats?.naverApiConnected 
+                    ? 'btn-secondary' 
+                    : 'btn-neon'
+                } text-sm inline-block`}
+              >
+                {dashboardStats?.naverApiConnected ? '연결 다시 하기' : '연결하기'}
               </Link>
             </div>
           </div>
 
-          <div className="flex items-start gap-4 p-4 rounded-xl bg-white/5 border border-white/10 opacity-50">
-            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-white/10 flex items-center justify-center">
-              <span className="text-white/60 font-bold">2</span>
+          {/* 2. 상품 동기화 확인 */}
+          <div className={`flex items-start gap-4 p-4 rounded-xl bg-white/5 border ${
+            (dashboardStats?.totalProducts || 0) > 0
+              ? 'border-green-500/30 bg-green-500/5' 
+              : dashboardStats?.naverApiConnected
+              ? 'border-white/10'
+              : 'border-white/10 opacity-50'
+          }`}>
+            <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
+              (dashboardStats?.totalProducts || 0) > 0
+                ? 'bg-green-500/20'
+                : dashboardStats?.naverApiConnected
+                ? 'bg-brand-neon/20'
+                : 'bg-white/10'
+            }`}>
+              {(dashboardStats?.totalProducts || 0) > 0 ? (
+                <CheckCircleIcon className="w-5 h-5 text-green-400" />
+              ) : (
+                <span className={`font-bold ${
+                  dashboardStats?.naverApiConnected ? 'text-brand-neon' : 'text-white/60'
+                }`}>2</span>
+              )}
             </div>
             <div className="flex-1">
-              <h3 className="text-lg font-semibold text-white/60 mb-2">
+              <h3 className={`text-lg font-semibold mb-2 ${
+                (dashboardStats?.totalProducts || 0) > 0 || dashboardStats?.naverApiConnected
+                  ? 'text-white' 
+                  : 'text-white/60'
+              }`}>
                 상품 동기화 확인
               </h3>
-              <p className="text-white/40">
-                자동으로 상품이 수집되고 SEO 구조로 변환됩니다.
+              <p className={`mb-3 ${
+                (dashboardStats?.totalProducts || 0) > 0
+                  ? 'text-green-400'
+                  : dashboardStats?.naverApiConnected
+                  ? 'text-white/60'
+                  : 'text-white/40'
+              }`}>
+                {(dashboardStats?.totalProducts || 0) > 0
+                  ? `✅ ${dashboardStats?.totalProducts}개 상품이 동기화되었습니다!`
+                  : '네이버 API 연결 후 자동으로 상품이 수집되고 SEO 구조로 변환됩니다.'}
               </p>
+              {dashboardStats?.naverApiConnected && (dashboardStats?.totalProducts || 0) === 0 && (
+                <Link href="/dashboard/products" className="btn-neon text-sm inline-block">
+                  상품 가져오기
+                </Link>
+              )}
+              {(dashboardStats?.totalProducts || 0) > 0 && (
+                <Link href="/dashboard/products" className="btn-secondary text-sm inline-block">
+                  상품 관리하기
+                </Link>
+              )}
             </div>
           </div>
 
-          <div className="flex items-start gap-4 p-4 rounded-xl bg-white/5 border border-white/10 opacity-50">
-            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-white/10 flex items-center justify-center">
-              <span className="text-white/60 font-bold">3</span>
+          {/* 3. 구글 검색 노출 시작 */}
+          <div className={`flex items-start gap-4 p-4 rounded-xl bg-white/5 border ${
+            (dashboardStats?.totalProducts || 0) > 0
+              ? 'border-white/10'
+              : 'border-white/10 opacity-50'
+          }`}>
+            <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
+              (dashboardStats?.totalProducts || 0) > 0
+                ? 'bg-brand-cyan/20'
+                : 'bg-white/10'
+            }`}>
+              <span className={`font-bold ${
+                (dashboardStats?.totalProducts || 0) > 0 ? 'text-brand-cyan' : 'text-white/60'
+              }`}>3</span>
             </div>
             <div className="flex-1">
-              <h3 className="text-lg font-semibold text-white/60 mb-2">
+              <h3 className={`text-lg font-semibold mb-2 ${
+                (dashboardStats?.totalProducts || 0) > 0 ? 'text-white' : 'text-white/60'
+              }`}>
                 구글 검색 노출 시작
               </h3>
-              <p className="text-white/40">
-                24시간 내에 구글 검색에 노출되기 시작합니다.
+              <p className={
+                (dashboardStats?.totalProducts || 0) > 0 ? 'text-white/60' : 'text-white/40'
+              }>
+                {(dashboardStats?.totalProducts || 0) > 0
+                  ? '🚀 상품이 구글 검색에 자동으로 노출되기 시작합니다. 24시간 내에 결과를 확인하세요!'
+                  : '상품 동기화 후 24시간 내에 구글 검색에 노출되기 시작합니다.'}
               </p>
             </div>
           </div>
@@ -284,10 +368,19 @@ export default function DashboardPage() {
         <p className="text-white/70 mb-4">
           설정 중 문제가 발생하면 언제든지 문의해주세요.
         </p>
-        <button className="btn-secondary text-sm">
+        <button 
+          onClick={() => setShowInquiryModal(true)}
+          className="btn-secondary text-sm"
+        >
           문의하기
         </button>
       </div>
+
+      {/* 문의하기 모달 */}
+      <InquiryModal 
+        isOpen={showInquiryModal} 
+        onClose={() => setShowInquiryModal(false)} 
+      />
     </div>
   );
 }

@@ -92,6 +92,7 @@ model User {
   syncSchedule  SyncSchedule?
   webhooks      Webhook[]
   subscriptions UserSubscription[]
+  inquiries     Inquiry[]
   
   @@map("Users")
 }
@@ -773,4 +774,43 @@ model NotificationSettings {
   updatedAt             DateTime @updatedAt
   
   @@map("NotificationSettings")
+}
+
+// ============================================
+// 셀러 문의 시스템
+// ============================================
+
+/// 셀러 문의
+model Inquiry {
+  id            String    @id @default(uuid())
+  userId        String
+  
+  // 문의 내용
+  title         String    @db.NVarChar(200)
+  content       String    @db.NVarChar(Max)
+  category      String    @db.NVarChar(50) // GENERAL, TECHNICAL, BILLING, FEATURE, BUG
+  
+  // 상태
+  status        String    @db.NVarChar(50) // PENDING, IN_PROGRESS, RESOLVED, CLOSED
+  
+  // 사용자 정보 (조회 최적화용)
+  userEmail     String    @db.NVarChar(255)
+  userName      String    @db.NVarChar(100)
+  userShopName  String?   @db.NVarChar(200)
+  
+  // 관리자 답변
+  adminReply    String?   @db.NVarChar(Max)
+  adminName     String?   @db.NVarChar(100)
+  repliedAt     DateTime?
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([status])
+  @@index([category])
+  @@index([createdAt])
+  @@map("Inquiries")
 }
