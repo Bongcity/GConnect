@@ -392,7 +392,7 @@ async function startScheduler(): Promise<void> {
   });
 
   // Google Search Console 데이터 동기화 (매 시간 정각)
-  const gscClient = getGSCClient();
+  const gscClient = getGSCClient(prisma);
   
   if (gscClient.isEnabled()) {
     console.log('[GSC Sync] 크론 작업 등록 중...');

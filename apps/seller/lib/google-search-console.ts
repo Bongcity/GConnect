@@ -5,7 +5,7 @@
  */
 
 import { google } from 'googleapis';
-import { prisma } from '@gconnect/db';
+import type { PrismaClient } from '@prisma/client';
 
 interface GSCMetrics {
   url: string;
@@ -25,8 +25,17 @@ export class GoogleSearchConsoleClient {
   private searchConsole;
   private siteUrl = 'sc-domain:gconnect.kr'; // 도메인 속성
   private enabled = false;
+  private prisma: PrismaClient;
 
-  constructor() {
+  constructor(prismaClient?: PrismaClient) {
+    // Prisma 클라이언트 주입 (없으면 기본값 사용)
+    if (prismaClient) {
+      this.prisma = prismaClient;
+    } else {
+      // 기본값: @gconnect/db에서 import (Next.js 앱에서 사용)
+      const { prisma: defaultPrisma } = require('@gconnect/db');
+      this.prisma = defaultPrisma;
+    }
     const serviceAccountEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
     const privateKey = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n');
 
@@ -167,7 +176,7 @@ export class GoogleSearchConsoleClient {
 
     try {
       // 1. 모든 활성 상품 조회
-      const products = await prisma.product.findMany({
+      const products = await this.prisma.product.findMany({
         where: { enabled: true },
         select: {
           id: true,
@@ -235,9 +244,9 @@ export class GoogleSearchConsoleClient {
       if (batchUpserts.length > 0) {
         console.log(`[GSC Sync] ${batchUpserts.length}개 레코드 배치 저장 중...`);
         
-        await prisma.$transaction(
+        await this.prisma.$transaction(
           batchUpserts.map(data =>
-            prisma.googleSearchStat.upsert({
+            this.prisma.googleSearchStat.upsert({
               where: {
                 productId_date: {
                   productId: data.productId,
@@ -318,9 +327,9 @@ export class GoogleSearchConsoleClient {
 // 싱글톤 인스턴스
 let gscClientInstance: GoogleSearchConsoleClient | null = null;
 
-export function getGSCClient(): GoogleSearchConsoleClient {
+export function getGSCClient(prismaClient?: PrismaClient): GoogleSearchConsoleClient {
   if (!gscClientInstance) {
-    gscClientInstance = new GoogleSearchConsoleClient();
+    gscClientInstance = new GoogleSearchConsoleClient(prismaClient);
   }
   return gscClientInstance;
 }
