@@ -75,14 +75,14 @@ export default function InquiryModal({ isOpen, onClose }: InquiryModalProps) {
             <select
               value={category}
               onChange={(e) => setCategory(e.target.value)}
-              className="input-field"
+              className="w-full px-4 py-3 rounded-lg bg-white/10 border border-white/20 text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-brand-neon/50 focus:border-brand-neon transition-colors"
               required
             >
-              <option value="GENERAL">일반 문의</option>
-              <option value="TECHNICAL">기술 지원</option>
-              <option value="BILLING">결제/구독</option>
-              <option value="FEATURE">기능 요청</option>
-              <option value="BUG">버그 신고</option>
+              <option value="GENERAL" className="bg-gray-800 text-white">일반 문의</option>
+              <option value="TECHNICAL" className="bg-gray-800 text-white">기술 지원</option>
+              <option value="BILLING" className="bg-gray-800 text-white">결제/구독</option>
+              <option value="FEATURE" className="bg-gray-800 text-white">기능 요청</option>
+              <option value="BUG" className="bg-gray-800 text-white">버그 신고</option>
             </select>
           </div>
 
@@ -95,7 +95,7 @@ export default function InquiryModal({ isOpen, onClose }: InquiryModalProps) {
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="input-field"
+              className="w-full px-4 py-3 rounded-lg bg-white/10 border border-white/20 text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-brand-neon/50 focus:border-brand-neon transition-colors"
               placeholder="문의 제목을 입력하세요"
               required
               maxLength={200}
@@ -110,26 +110,13 @@ export default function InquiryModal({ isOpen, onClose }: InquiryModalProps) {
             <textarea
               value={content}
               onChange={(e) => setContent(e.target.value)}
-              className="input-field min-h-[200px]"
+              className="w-full px-4 py-3 rounded-lg bg-white/10 border border-white/20 text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-brand-neon/50 focus:border-brand-neon transition-colors min-h-[200px] resize-none"
               placeholder="문의 내용을 자세히 입력해주세요.&#10;&#10;예시:&#10;- 문제가 발생한 상황&#10;- 예상했던 동작&#10;- 실제 발생한 동작&#10;- 오류 메시지 (있다면)"
               required
               maxLength={2000}
             />
             <p className="mt-2 text-sm text-white/60">
               {content.length} / 2000자
-            </p>
-          </div>
-
-          {/* 안내 메시지 */}
-          <div className="p-4 rounded-lg bg-brand-neon/10 border border-brand-neon/20">
-            <p className="text-sm text-white/70">
-              📧 문의하신 내용은 관리자가 확인 후 24시간 내에 답변 드립니다.
-              <br />
-              긴급한 사항은 이메일({' '}
-              <a href="mailto:support@gconnect.kr" className="text-brand-neon hover:underline">
-                support@gconnect.kr
-              </a>
-              )로 연락 주세요.
             </p>
           </div>
 
