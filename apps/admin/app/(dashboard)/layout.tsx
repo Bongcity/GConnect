@@ -19,6 +19,7 @@ import {
   ChatBubbleLeftRightIcon,
   ChartBarIcon,
   BellIcon,
+  Cog6ToothIcon,
 } from '@heroicons/react/24/outline';
 
 export default function DashboardLayout({
@@ -255,6 +256,20 @@ export default function DashboardLayout({
           >
             <BellIcon className="w-5 h-5" />
             <span>알림 센터</span>
+          </Link>
+
+          <div className="my-4 border-t border-white/10"></div>
+
+          <Link
+            href="/dashboard/system-settings"
+            className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
+              isActive('/dashboard/system-settings')
+                ? 'bg-red-500/20 text-red-400 border border-red-500/30'
+                : 'text-white/80 hover:text-white hover:bg-white/5'
+            }`}
+          >
+            <Cog6ToothIcon className="w-5 h-5" />
+            <span>시스템 설정</span>
           </Link>
         </nav>
 

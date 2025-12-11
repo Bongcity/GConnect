@@ -4,6 +4,17 @@ import { NextResponse } from 'next/server';
 export async function GET() {
   const baseUrl = process.env.NEXT_PUBLIC_PRODUCT_URL || 'https://www.gconnect.kr';
 
+  // SystemSettings 확인 - DDRo 상품 표시 여부
+  let showDdroProducts = true;
+  try {
+    const { prisma: gconnectPrisma } = await import('@gconnect/db');
+    const settings = await gconnectPrisma.systemSettings.findFirst();
+    showDdroProducts = settings?.showDdroProducts ?? true;
+    console.log(`[Sitemap] DDRo 상품 표시 설정: ${showDdroProducts ? 'ON' : 'OFF'}`);
+  } catch (error) {
+    console.warn('[Sitemap] ⚠️ SystemSettings 조회 실패, 기본값(true) 사용:', error);
+  }
+
   let sitemap = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
         xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">`;
@@ -84,7 +95,8 @@ export async function GET() {
       console.error('[Sitemap] ⚠️ 상품 페이지 생성 실패:', productError);
     }
 
-    // 카테고리 조회
+    // 카테고리 조회 (SELLER 상품의 카테고리만 조회됨)
+    // Note: DDRo 카테고리는 별도 조회하지 않으므로 showDdroProducts 설정과 무관
     try {
       const categories = await prisma.product.findMany({
         where: {

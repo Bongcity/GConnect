@@ -814,3 +814,24 @@ model Inquiry {
   @@index([createdAt])
   @@map("Inquiries")
 }
+
+// ============================================
+// 시스템 설정
+// ============================================
+
+/// 시스템 전역 설정
+model SystemSettings {
+  id                  String   @id @default(uuid())
+  
+  // DDRo 상품 표시 설정
+  showDdroProducts    Boolean  @default(true)
+  
+  // 기타 전역 설정
+  maintenanceMode     Boolean  @default(false)
+  maintenanceMessage  String?  @db.NVarChar(500)
+  
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  
+  @@map("SystemSettings")
+}

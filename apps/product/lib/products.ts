@@ -122,6 +122,22 @@ async function getGlobalProducts(options: ProductQueryOptions): Promise<{
   products: GlobalAffiliateProduct[];
   total: number;
 }> {
+  // SystemSettings 확인 - DDRo 상품 표시 여부
+  try {
+    const settings = await prisma.systemSettings.findFirst();
+    
+    // 설정이 없거나 showDdroProducts가 false면 빈 배열 반환
+    if (!settings || !settings.showDdroProducts) {
+      console.log('[getGlobalProducts] ⚠️ DDRo 상품 표시 비활성화됨 (SystemSettings)');
+      return { products: [], total: 0 };
+    }
+    
+    console.log('[getGlobalProducts] ✅ DDRo 상품 표시 활성화됨');
+  } catch (error) {
+    console.error('[getGlobalProducts] ⚠️ SystemSettings 조회 실패:', error);
+    // 설정 조회 실패 시 기본값으로 DDRo 상품 표시 (fail-safe)
+  }
+
   const { keyword, category, page = 1, pageSize = 40, sortBy = 'latest' } = options;
   
   try {
