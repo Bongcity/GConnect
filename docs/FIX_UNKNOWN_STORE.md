@@ -2,9 +2,18 @@
 
 ## 문제 상황
 
+### 1. `UNKNOWN_STORE` 문제
 `affiliate_products` 테이블의 URL에 `UNKNOWN_STORE`가 들어가는 문제:
 ```
 https://smartstore.naver.com/UNKNOWN_STORE/products/12344829833
+```
+
+### 2. 상세 정보 URL 문제
+`product_description_url`에 상품 URL과 동일한 값이 들어가는 문제:
+```sql
+product_url = "https://smartstore.naver.com/kcmaker/products/12344829833"
+product_description_url = "https://smartstore.naver.com/kcmaker/products/12344829833"
+-- 👆 상세 정보로 직접 이동하는 앵커 링크가 필요
 ```
 
 ## 해결 방법
@@ -42,8 +51,13 @@ pnpm dev
 
 **결과**: 새로 가져오는 상품은 자동으로 올바른 URL로 저장됩니다!
 ```
-https://smartstore.naver.com/kcmaker/products/12344829833
+product_url: https://smartstore.naver.com/kcmaker/products/12344829833
+product_description_url: https://smartstore.naver.com/kcmaker/products/12344829833#DETAIL
 ```
+
+**설명**:
+- `product_url`: 상품 메인 페이지 (이미지, 가격, 구매 버튼 등)
+- `product_description_url`: 상품 상세 정보 섹션 (`#DETAIL` 앵커로 직접 이동)
 
 ### 4단계: 기존 데이터 수정 (선택 사항)
 
@@ -134,6 +148,16 @@ const productUrl = storeId && channelProductNo
   ? `https://smartstore.naver.com/${storeId}/products/${channelProductNo}`
   : undefined;
 // → "https://smartstore.naver.com/kcmaker/products/12344829833"
+
+// 상세 정보 URL 생성
+// 1순위: API에서 제공하는 상세 URL (있다면)
+// 2순위: detailContent HTML이 있으면 #DETAIL 앵커 사용
+// 3순위: 상품 URL과 동일 (fallback)
+const descriptionUrl = channelProduct.detailContent?.url 
+  || (detailData?.originProduct?.detailContent 
+    ? `https://smartstore.naver.com/${storeId}/products/${channelProductNo}#DETAIL`
+    : productUrl);
+// → "https://smartstore.naver.com/kcmaker/products/12344829833#DETAIL"
 ```
 
 ## 트러블슈팅

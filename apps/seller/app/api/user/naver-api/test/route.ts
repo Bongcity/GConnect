@@ -226,6 +226,46 @@ export async function POST(req: Request) {
            } catch (channelError) {
              console.error('❌ 채널 정보 조회 오류:', channelError);
            }
+           
+           // 4단계: 상품 상세 정보 구조 확인 (상품이 있는 경우)
+           let detailContentInfo = null;
+           if (responseData.products && responseData.products.length > 0) {
+             const firstProduct = responseData.products[0];
+             const channelProductNo = firstProduct.channelProducts?.[0]?.channelProductNo;
+             
+             if (channelProductNo) {
+               console.log('📝 상품 상세 정보 구조 확인 중...');
+               console.log('   상품 기본 구조:', {
+                 originProductNo: firstProduct.originProductNo,
+                 channelProductNo: channelProductNo,
+                 hasDetailContent: !!firstProduct.channelProducts?.[0]?.detailContent,
+                 detailContentType: typeof firstProduct.channelProducts?.[0]?.detailContent
+               });
+               
+               // detailContent 필드 확인
+               const channelProduct = firstProduct.channelProducts[0];
+               if (channelProduct.detailContent) {
+                 console.log('   📄 detailContent 구조:', {
+                   type: typeof channelProduct.detailContent,
+                   hasUrl: !!channelProduct.detailContent?.url,
+                   url: channelProduct.detailContent?.url,
+                   length: typeof channelProduct.detailContent === 'string' 
+                     ? channelProduct.detailContent.length 
+                     : 'N/A'
+                 });
+                 
+                 detailContentInfo = {
+                   type: typeof channelProduct.detailContent,
+                   hasUrl: !!channelProduct.detailContent?.url,
+                   url: channelProduct.detailContent?.url,
+                   hasDetailContentUrl: !!channelProduct.detailContentUrl,
+                   detailContentUrl: channelProduct.detailContentUrl,
+                   hasPcDetailContent: !!channelProduct.pcDetailContent,
+                   pcDetailContentUrl: channelProduct.pcDetailContent?.url
+                 };
+               }
+             }
+           }
 
            return NextResponse.json({
              ok: true,
@@ -236,12 +276,18 @@ export async function POST(req: Request) {
              authMethod: 'OAuth 2.0 (bcrypt)',
              channelInfo: channelInfo,
              storeId: storeId,
+             detailContentInfo: detailContentInfo,
+             urls: {
+               productUrl: storeId !== 'UNKNOWN_STORE' && responseData.products?.[0]?.channelProducts?.[0]?.channelProductNo
+                 ? `https://smartstore.naver.com/${storeId}/products/${responseData.products[0].channelProducts[0].channelProductNo}`
+                 : undefined,
+               productDescriptionUrl: storeId !== 'UNKNOWN_STORE' && responseData.products?.[0]?.channelProducts?.[0]?.channelProductNo
+                 ? detailContentInfo?.url || `https://smartstore.naver.com/${storeId}/products/${responseData.products[0].channelProducts[0].channelProductNo}#DETAIL`
+                 : undefined
+             },
              hint: productCount === 0 ? 
                '⚠️ 상품이 0개입니다. 스마트스토어에 "판매중" 상태의 상품이 있는지 확인해주세요.' : 
-               '✅ 상품 데이터가 정상적으로 조회되었습니다!',
-             productUrl: storeId !== 'UNKNOWN_STORE' && responseData.products?.[0]?.channelProductNo
-               ? `https://smartstore.naver.com/${storeId}/products/${responseData.products[0].channelProductNo}`
-               : undefined
+               '✅ 상품 데이터가 정상적으로 조회되었습니다!'
            });
         } else {
           console.log(`   ❌ API 호출 실패`);
