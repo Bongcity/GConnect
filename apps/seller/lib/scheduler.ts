@@ -8,9 +8,13 @@ import cron from 'node-cron';
 import { prisma } from '@gconnect/db';
 import { NaverApiClient, transformNaverProduct } from './naver-api';
 import { triggerWebhooks, WebhookPayload } from './webhook';
+import { getGSCClient } from './google-search-console';
 
 // 실행 중인 크론 작업들을 저장
 const cronJobs = new Map<string, cron.ScheduledTask>();
+
+// GSC 동기화 크론 작업
+let gscSyncCronJob: cron.ScheduledTask | null = null;
 
 /**
  * 스케줄러 초기화
@@ -47,6 +51,9 @@ export async function initScheduler() {
     }
 
     console.log('✅ 스케줄러 초기화 완료');
+    
+    // Google Search Console 데이터 동기화 크론 작업 등록 (1시간마다)
+    await registerGSCSync();
   } catch (error) {
     console.error('❌ 스케줄러 초기화 실패:', error);
   }
@@ -523,6 +530,59 @@ async function sendNotification(schedule: any, status: string, details: any) {
 }
 
 /**
+ * Google Search Console 데이터 동기화 크론 작업 등록
+ * 매 시간 정각(0분)에 실행
+ */
+export async function registerGSCSync() {
+  console.log('[GSC Sync] 크론 작업 등록 중...');
+  
+  const gscClient = getGSCClient();
+  
+  if (!gscClient.isEnabled()) {
+    console.log('[GSC Sync] ⚠️ GSC API 비활성화 - 크론 작업 건너뜀');
+    return;
+  }
+  
+  // 기존 작업이 있으면 중지
+  if (gscSyncCronJob) {
+    gscSyncCronJob.stop();
+  }
+  
+  // 매 시간 정각에 실행 (예: 0:00, 1:00, 2:00...)
+  gscSyncCronJob = cron.schedule('0 * * * *', async () => {
+    console.log('[GSC Sync] ⏰ 크론 작업 시작');
+    
+    try {
+      // 최근 7일 데이터 동기화
+      const endDate = new Date();
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - 7);
+      
+      await gscClient.syncProductStats({ start: startDate, end: endDate });
+      
+      console.log('[GSC Sync] ✅ 크론 작업 완료');
+    } catch (error) {
+      console.error('[GSC Sync] ❌ 크론 작업 실패:', error);
+    }
+  });
+  
+  console.log('[GSC Sync] ✅ 크론 작업 등록 완료 (매 시간 정각 실행)');
+  
+  // 초기 동기화 실행 (선택사항 - 스케줄러 시작 시 즉시 실행)
+  console.log('[GSC Sync] 🚀 초기 동기화 시작...');
+  try {
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - 7);
+    
+    await gscClient.syncProductStats({ start: startDate, end: endDate });
+    console.log('[GSC Sync] ✅ 초기 동기화 완료');
+  } catch (error) {
+    console.error('[GSC Sync] ❌ 초기 동기화 실패:', error);
+  }
+}
+
+/**
  * 모든 크론 작업 중지
  */
 export function stopAllCronJobs() {
@@ -532,6 +592,13 @@ export function stopAllCronJobs() {
     console.log(`  ⏹️ ${userId}`);
   });
   cronJobs.clear();
+  
+  // GSC 동기화 크론 작업도 중지
+  if (gscSyncCronJob) {
+    gscSyncCronJob.stop();
+    console.log('  ⏹️ GSC Sync');
+  }
+  
   console.log('✅ 모든 크론 작업 중지 완료');
 }
 

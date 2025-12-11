@@ -5,8 +5,10 @@ import { prisma } from '@gconnect/db';
 
 /**
  * 대시보드 통계 조회
+ * Query params:
+ * - days: 조회 기간 (기본 7일)
  */
-export async function GET() {
+export async function GET(req: Request) {
   try {
     const session = await getServerSession(authOptions);
 
@@ -41,13 +43,35 @@ export async function GET() {
       },
     });
 
-    // 구글 노출 통계 (최근 30일)
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    // 구글 노출 통계 (Search Console API)
+    const { searchParams } = new URL(req.url);
+    const days = parseInt(searchParams.get('days') || '7', 10);
+    
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
 
-    // TODO: 실제 구글 Analytics 연동 시 수정 필요
-    // 현재는 예시로 0을 반환
-    const googleExposureCount = 0;
+    // 사용자의 모든 상품 ID 조회
+    const userProducts = await prisma.product.findMany({
+      where: { userId },
+      select: { id: true },
+    });
+
+    const productIds = userProducts.map(p => p.id);
+
+    // GSC 통계 집계
+    const gscStats = await prisma.googleSearchStat.aggregate({
+      where: {
+        productId: { in: productIds },
+        date: { gte: startDate },
+      },
+      _sum: {
+        impressions: true,
+        clicks: true,
+      },
+    });
+
+    const googleImpressions = gscStats._sum.impressions || 0;
+    const googleClicks = gscStats._sum.clicks || 0;
 
     // 네이버 API 연결 여부
     const naverApiConnected = 
@@ -59,7 +83,8 @@ export async function GET() {
       totalProducts,
       activeProducts,
       naverApiConnected,
-      googleExposureCount,
+      googleExposureCount: googleImpressions, // 노출수
+      googleClicksCount: googleClicks, // 클릭수 (추가)
     });
   } catch (error) {
     console.error('Dashboard stats error:', error);

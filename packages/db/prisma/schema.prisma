@@ -315,6 +315,7 @@ model Product {
   // 관계
   user                          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   productDetail                 ProductDetail?
+  googleSearchStats             GoogleSearchStat[]
   
   @@index([userId])
   @@index([source_cid])
@@ -834,4 +835,36 @@ model SystemSettings {
   updatedAt           DateTime @updatedAt
   
   @@map("SystemSettings")
+}
+
+// ============================================
+// Google Search Console 통계
+// ============================================
+
+/// Google Search Console 통계 (날짜별 상품 노출/클릭 데이터)
+model GoogleSearchStat {
+  id              String   @id @default(uuid())
+  
+  // 상품 정보
+  productId       BigInt
+  productUrl      String   @db.NVarChar(1000)
+  
+  // 날짜
+  date            DateTime @db.Date
+  
+  // 지표
+  impressions     Int      @default(0)  // 노출수
+  clicks          Int      @default(0)  // 클릭수
+  
+  // 타임스탬프
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // 관계
+  product         Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  
+  @@unique([productId, date])
+  @@index([productId])
+  @@index([date])
+  @@map("GoogleSearchStats")
 }
