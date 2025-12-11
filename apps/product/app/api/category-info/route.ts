@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { ddroPrisma } from '@gconnect/db';
+import { ddroPrisma, prisma } from '@gconnect/db';
 
 /**
  * 특정 카테고리 정보 조회 API
@@ -7,6 +7,19 @@ import { ddroPrisma } from '@gconnect/db';
  */
 export async function GET(req: NextRequest) {
   try {
+    // SystemSettings 확인 - DDRo 상품 표시 여부
+    const settings = await prisma.systemSettings.findFirst();
+    if (!settings || !settings.showDdroProducts) {
+      console.log('[API /category-info] ⚠️ DDRo 상품 표시 비활성화됨');
+      return NextResponse.json({
+        cid: null,
+        name: '알 수 없음',
+        category_1: null,
+        category_2: null,
+        category_3: null,
+      });
+    }
+
     const { searchParams } = new URL(req.url);
     const cid = searchParams.get('cid');
 

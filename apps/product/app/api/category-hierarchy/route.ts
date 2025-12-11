@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { ddroPrisma } from '@gconnect/db';
+import { ddroPrisma, prisma } from '@gconnect/db';
 
 /**
  * 카테고리 계층 구조 조회 API
@@ -9,6 +9,13 @@ import { ddroPrisma } from '@gconnect/db';
  */
 export async function GET(req: NextRequest) {
   try {
+    // SystemSettings 확인 - DDRo 상품 표시 여부
+    const settings = await prisma.systemSettings.findFirst();
+    if (!settings || !settings.showDdroProducts) {
+      console.log('[API /category-hierarchy] ⚠️ DDRo 상품 표시 비활성화됨');
+      return NextResponse.json({ categories: [] });
+    }
+
     const { searchParams } = new URL(req.url);
     const category1 = searchParams.get('category1');
     const category2 = searchParams.get('category2');

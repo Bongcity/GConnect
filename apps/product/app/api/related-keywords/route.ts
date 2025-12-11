@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { ddroPrisma } from '@gconnect/db';
+import { ddroPrisma, prisma } from '@gconnect/db';
 
 /**
  * 관련 검색어 조회 API
@@ -8,6 +8,13 @@ import { ddroPrisma } from '@gconnect/db';
  */
 export async function GET(req: NextRequest) {
   try {
+    // SystemSettings 확인 - DDRo 상품 표시 여부
+    const settings = await prisma.systemSettings.findFirst();
+    if (!settings || !settings.showDdroProducts) {
+      console.log('[API /related-keywords] ⚠️ DDRo 상품 표시 비활성화됨');
+      return NextResponse.json({ relatedKeywords: [] });
+    }
+
     const { searchParams } = new URL(req.url);
     const keyword = searchParams.get('keyword');
     const limit = parseInt(searchParams.get('limit') || '8');
