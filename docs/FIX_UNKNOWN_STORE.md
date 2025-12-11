@@ -52,12 +52,12 @@ pnpm dev
 **결과**: 새로 가져오는 상품은 자동으로 올바른 URL로 저장됩니다!
 ```
 product_url: https://smartstore.naver.com/kcmaker/products/12344829833
-product_description_url: https://smartstore.naver.com/kcmaker/products/12344829833#DETAIL
+product_description_url: https://m.smartstore.naver.com/kcmaker/products/12344829833/shopping-connect-contents
 ```
 
 **설명**:
-- `product_url`: 상품 메인 페이지 (이미지, 가격, 구매 버튼 등)
-- `product_description_url`: 상품 상세 정보 섹션 (`#DETAIL` 앵커로 직접 이동)
+- `product_url`: PC 상품 메인 페이지 (이미지, 가격, 구매 버튼 등)
+- `product_description_url`: 모바일 상품 상세 정보 전용 페이지 (실제 네이버 형식)
 
 ### 4단계: 기존 데이터 수정 (선택 사항)
 
@@ -143,21 +143,21 @@ transformNaverProduct(product, detailData, storeId);
 
 ### transformNaverProduct()
 ```typescript
-// 상품 URL 생성
+// 상품 URL 생성 (PC 버전)
 const productUrl = storeId && channelProductNo 
   ? `https://smartstore.naver.com/${storeId}/products/${channelProductNo}`
   : undefined;
 // → "https://smartstore.naver.com/kcmaker/products/12344829833"
 
-// 상세 정보 URL 생성
-// 1순위: API에서 제공하는 상세 URL (있다면)
-// 2순위: detailContent HTML이 있으면 #DETAIL 앵커 사용
+// 상세 정보 URL 생성 (모바일 버전 + shopping-connect-contents)
+// 1순위: API에서 제공하는 상세 URL (거의 없음)
+// 2순위: 모바일 스마트스토어 상세 정보 전용 URL (실제 네이버 형식) ⭐
 // 3순위: 상품 URL과 동일 (fallback)
 const descriptionUrl = channelProduct.detailContent?.url 
-  || (detailData?.originProduct?.detailContent 
-    ? `https://smartstore.naver.com/${storeId}/products/${channelProductNo}#DETAIL`
+  || (storeId && channelProductNo
+    ? `https://m.smartstore.naver.com/${storeId}/products/${channelProductNo}/shopping-connect-contents`
     : productUrl);
-// → "https://smartstore.naver.com/kcmaker/products/12344829833#DETAIL"
+// → "https://m.smartstore.naver.com/kcmaker/products/12344829833/shopping-connect-contents"
 ```
 
 ## 트러블슈팅

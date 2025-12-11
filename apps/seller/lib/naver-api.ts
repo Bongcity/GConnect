@@ -671,21 +671,19 @@ export function transformNaverProduct(naverProduct: any, detailData?: any, store
   });
   
   // 상세 설명 URL
-  // 네이버 스마트스토어는 상품 페이지 내에 상세 정보가 포함되어 있음
-  // 상세 정보 섹션으로 직접 이동하려면 #detail 앵커 사용
+  // 네이버 스마트스토어 상세 정보 전용 URL 형식:
+  // https://m.smartstore.naver.com/{storeId}/products/{channelProductNo}/shopping-connect-contents
   let descriptionUrl: string | undefined = undefined;
   
-  // 1순위: API에서 제공하는 상세 URL (있다면)
+  // 1순위: API에서 제공하는 상세 URL (거의 없음)
   if (channelProduct.detailContent?.url || channelProduct.detailContentUrl || channelProduct.pcDetailContent?.url) {
     descriptionUrl = channelProduct.detailContent?.url 
       || channelProduct.detailContentUrl
       || channelProduct.pcDetailContent?.url;
   }
-  // 2순위: 상세 정보 HTML이 있으면 상품 페이지 #detail 앵커 사용
-  else if (detailData?.originProduct?.detailContent || channelProduct.detailContent) {
-    descriptionUrl = storeId && channelProduct.channelProductNo 
-      ? `https://smartstore.naver.com/${storeId}/products/${channelProduct.channelProductNo}#DETAIL`
-      : undefined;
+  // 2순위: 모바일 스마트스토어 상세 정보 URL (실제 네이버 형식)
+  else if (storeId && channelProduct.channelProductNo) {
+    descriptionUrl = `https://m.smartstore.naver.com/${storeId}/products/${channelProduct.channelProductNo}/shopping-connect-contents`;
   }
   // 3순위: 상품 페이지 URL과 동일 (fallback)
   else {
@@ -699,7 +697,7 @@ export function transformNaverProduct(naverProduct: any, detailData?: any, store
     descriptionUrl,
     hasDetailContent: !!(detailData?.originProduct?.detailContent || channelProduct.detailContent),
     'API 제공 detailContent URL': channelProduct.detailContent?.url || channelProduct.detailContentUrl,
-    'descriptionUrl 타입': descriptionUrl?.includes('#DETAIL') ? 'anchor' : 'same as product'
+    'descriptionUrl 형식': descriptionUrl?.includes('/shopping-connect-contents') ? 'mobile detail page' : 'fallback'
   });
   
   // 수수료 정보 (상세 정보 우선)

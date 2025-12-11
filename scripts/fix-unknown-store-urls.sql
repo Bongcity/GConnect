@@ -1,4 +1,5 @@
--- UNKNOWN_STORE를 실제 스토어 ID(kcmaker)로 교체하는 스크립트
+-- UNKNOWN_STORE를 실제 스토어 ID(kcmaker)로 교체하고
+-- 상세 정보 URL을 올바른 형식으로 변경하는 스크립트
 -- 
 -- 사용법:
 -- 1. 먼저 영향받는 레코드 수 확인 (DRY RUN)
@@ -14,12 +15,18 @@ SELECT
     product_description_url,
     -- 변경될 URL 미리보기
     REPLACE(product_url, 'UNKNOWN_STORE', 'kcmaker') AS new_product_url,
-    REPLACE(product_description_url, 'UNKNOWN_STORE', 'kcmaker') AS new_description_url
+    -- 상세 정보 URL은 모바일 버전 + shopping-connect-contents 형식으로 변경
+    REPLACE(
+        REPLACE(product_description_url, 'UNKNOWN_STORE', 'kcmaker'),
+        'https://smartstore.naver.com/',
+        'https://m.smartstore.naver.com/'
+    ) + '/shopping-connect-contents' AS new_description_url
 FROM 
     affiliate_products
 WHERE 
     product_url LIKE '%UNKNOWN_STORE%'
-    OR product_description_url LIKE '%UNKNOWN_STORE%';
+    OR product_description_url LIKE '%UNKNOWN_STORE%'
+    OR product_description_url NOT LIKE '%/shopping-connect-contents';
 
 -- ==============================================
 -- 2단계: 실제 업데이트 (확인 후 실행)
@@ -27,15 +34,38 @@ WHERE
 -- ⚠️ 주의: 이 쿼리는 실제 데이터를 변경합니다!
 -- 위의 SELECT 결과를 확인한 후에 실행하세요.
 
--- product_url 업데이트
+-- 2-1. product_url 업데이트 (UNKNOWN_STORE → kcmaker)
 UPDATE affiliate_products
 SET product_url = REPLACE(product_url, 'UNKNOWN_STORE', 'kcmaker')
 WHERE product_url LIKE '%UNKNOWN_STORE%';
 
--- product_description_url 업데이트
+-- 2-2. product_description_url 업데이트 (UNKNOWN_STORE → kcmaker + 모바일 형식)
+-- 먼저 UNKNOWN_STORE를 kcmaker로 변경
 UPDATE affiliate_products
 SET product_description_url = REPLACE(product_description_url, 'UNKNOWN_STORE', 'kcmaker')
 WHERE product_description_url LIKE '%UNKNOWN_STORE%';
+
+-- 2-3. product_description_url을 모바일 버전으로 변경하고 /shopping-connect-contents 추가
+UPDATE affiliate_products
+SET product_description_url = 
+    REPLACE(
+        REPLACE(product_description_url, 'https://smartstore.naver.com/', 'https://m.smartstore.naver.com/'),
+        '/products/',
+        '/products/'
+    ) + '/shopping-connect-contents'
+WHERE 
+    product_description_url LIKE 'https://smartstore.naver.com/%'
+    AND product_description_url NOT LIKE '%/shopping-connect-contents';
+
+-- 또는 간단하게 재생성 (channelProductNo가 URL 끝에 있는 경우)
+-- UPDATE affiliate_products
+-- SET product_description_url = 
+--     REPLACE(
+--         product_url,
+--         'https://smartstore.naver.com/',
+--         'https://m.smartstore.naver.com/'
+--     ) + '/shopping-connect-contents'
+-- WHERE product_url LIKE 'https://smartstore.naver.com/kcmaker/products/%';
 
 -- ==============================================
 -- 3단계: 업데이트 결과 확인

@@ -159,136 +159,68 @@ export async function POST(req: Request) {
           responseData = responseText;
         }
 
-         if (response.ok) {
-           console.log(`   ✅ API 호출 성공!`);
-           
-           const totalCount = responseData.totalCount || 0;
-           const productCount = responseData.products ? responseData.products.length : 0;
-           
-           console.log(`   📊 총 상품 수: ${totalCount}`);
-           console.log(`   📦 조회된 상품: ${productCount}개`);
+        if (response.ok) {
+          console.log(`   ✅ API 호출 성공!`);
+          
+          const totalCount = responseData.totalCount || 0;
+          const productCount = responseData.products ? responseData.products.length : 0;
+          
+          console.log(`   📊 총 상품 수: ${totalCount}`);
+          console.log(`   📦 조회된 상품: ${productCount}개`);
 
-           // 3단계: 채널 정보 조회 (스토어 ID 확인)
-           console.log('🏪 채널 정보 조회 중...');
-           let channelInfo = null;
-           let storeId = 'UNKNOWN_STORE';
-           
-           try {
-             const channelResponse = await fetch(
-               'https://api.commerce.naver.com/external/v1/seller/channels',
-               {
-                 method: 'GET',
-                 headers: {
-                   'Content-Type': 'application/json',
-                   'Authorization': `Bearer ${accessToken}`,
-                 },
-               }
-             );
-             
-             if (channelResponse.ok) {
-               channelInfo = await channelResponse.json();
-               console.log('🏪 채널 정보:', JSON.stringify(channelInfo, null, 2));
-               
-               // 채널 정보에서 스토어 ID 추출
-               if (channelInfo && Array.isArray(channelInfo) && channelInfo.length > 0) {
-                 const firstChannel = channelInfo[0];
-                 
-                 // URL에서 스토어 ID 추출: https://smartstore.naver.com/kcmaker → kcmaker
-                 if (firstChannel.url) {
-                   const urlMatch = firstChannel.url.match(/smartstore\.naver\.com\/([^\/\?]+)/);
-                   if (urlMatch && urlMatch[1]) {
-                     storeId = urlMatch[1];
-                   }
-                 }
-                 
-                 // URL 추출 실패 시 다른 필드 시도
-                 if (storeId === 'UNKNOWN_STORE') {
-                   storeId = firstChannel.channelId 
-                     || firstChannel.storeId 
-                     || firstChannel.channelServiceId
-                     || firstChannel.serviceChannelId
-                     || firstChannel.smartStoreId
-                     || firstChannel.name
-                     || 'UNKNOWN_STORE';
-                 }
-                 
-                 console.log('✅ 스토어 ID 추출:', storeId);
-                 console.log('📋 채널 정보:', {
-                   name: firstChannel.name,
-                   url: firstChannel.url,
-                   channelNo: firstChannel.channelNo,
-                   channelType: firstChannel.channelType
-                 });
-               }
-             } else {
-               console.warn('⚠️ 채널 정보 조회 실패:', channelResponse.status);
-             }
-           } catch (channelError) {
-             console.error('❌ 채널 정보 조회 오류:', channelError);
-           }
-           
-           // 4단계: 상품 상세 정보 구조 확인 (상품이 있는 경우)
-           let detailContentInfo = null;
-           if (responseData.products && responseData.products.length > 0) {
-             const firstProduct = responseData.products[0];
-             const channelProductNo = firstProduct.channelProducts?.[0]?.channelProductNo;
-             
-             if (channelProductNo) {
-               console.log('📝 상품 상세 정보 구조 확인 중...');
-               console.log('   상품 기본 구조:', {
-                 originProductNo: firstProduct.originProductNo,
-                 channelProductNo: channelProductNo,
-                 hasDetailContent: !!firstProduct.channelProducts?.[0]?.detailContent,
-                 detailContentType: typeof firstProduct.channelProducts?.[0]?.detailContent
-               });
-               
-               // detailContent 필드 확인
-               const channelProduct = firstProduct.channelProducts[0];
-               if (channelProduct.detailContent) {
-                 console.log('   📄 detailContent 구조:', {
-                   type: typeof channelProduct.detailContent,
-                   hasUrl: !!channelProduct.detailContent?.url,
-                   url: channelProduct.detailContent?.url,
-                   length: typeof channelProduct.detailContent === 'string' 
-                     ? channelProduct.detailContent.length 
-                     : 'N/A'
-                 });
-                 
-                 detailContentInfo = {
-                   type: typeof channelProduct.detailContent,
-                   hasUrl: !!channelProduct.detailContent?.url,
-                   url: channelProduct.detailContent?.url,
-                   hasDetailContentUrl: !!channelProduct.detailContentUrl,
-                   detailContentUrl: channelProduct.detailContentUrl,
-                   hasPcDetailContent: !!channelProduct.pcDetailContent,
-                   pcDetailContentUrl: channelProduct.pcDetailContent?.url
-                 };
-               }
-             }
-           }
+          // 3단계: 채널 정보 조회 (스토어 ID 확인)
+          console.log('🏪 채널 정보 조회 중...');
+          let storeId = 'UNKNOWN_STORE';
+          
+          try {
+            const channelResponse = await fetch(
+              'https://api.commerce.naver.com/external/v1/seller/channels',
+              {
+                method: 'GET',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${accessToken}`,
+                },
+              }
+            );
+            
+            if (channelResponse.ok) {
+              const channelInfo = await channelResponse.json();
+              console.log('🏪 채널 정보:', JSON.stringify(channelInfo, null, 2));
+              
+              // URL에서 스토어 ID 추출
+              if (Array.isArray(channelInfo) && channelInfo.length > 0 && channelInfo[0].url) {
+                const urlMatch = channelInfo[0].url.match(/smartstore\.naver\.com\/([^\/\?]+)/);
+                if (urlMatch && urlMatch[1]) {
+                  storeId = urlMatch[1];
+                  console.log('✅ 스토어 ID 추출:', storeId);
+                }
+              }
+            }
+          } catch (err) {
+            console.warn('⚠️ 채널 정보 조회 실패:', err);
+          }
 
-           return NextResponse.json({
-             ok: true,
-             message: `✅ 네이버 커머스 API 연결 성공!`,
-             endpoint: 'POST /external/v1/products/search',
-             totalProducts: totalCount,
-             retrievedProducts: productCount,
-             authMethod: 'OAuth 2.0 (bcrypt)',
-             channelInfo: channelInfo,
-             storeId: storeId,
-             detailContentInfo: detailContentInfo,
-             urls: {
-               productUrl: storeId !== 'UNKNOWN_STORE' && responseData.products?.[0]?.channelProducts?.[0]?.channelProductNo
-                 ? `https://smartstore.naver.com/${storeId}/products/${responseData.products[0].channelProducts[0].channelProductNo}`
-                 : undefined,
-               productDescriptionUrl: storeId !== 'UNKNOWN_STORE' && responseData.products?.[0]?.channelProducts?.[0]?.channelProductNo
-                 ? detailContentInfo?.url || `https://smartstore.naver.com/${storeId}/products/${responseData.products[0].channelProducts[0].channelProductNo}#DETAIL`
-                 : undefined
-             },
-             hint: productCount === 0 ? 
-               '⚠️ 상품이 0개입니다. 스마트스토어에 "판매중" 상태의 상품이 있는지 확인해주세요.' : 
-               '✅ 상품 데이터가 정상적으로 조회되었습니다!'
-           });
+          // URL 예시 생성
+          const sampleChannelProductNo = responseData.products?.[0]?.channelProducts?.[0]?.channelProductNo;
+          const urlExamples = sampleChannelProductNo ? {
+            productUrl: `https://smartstore.naver.com/${storeId}/products/${sampleChannelProductNo}`,
+            productDescriptionUrl: `https://m.smartstore.naver.com/${storeId}/products/${sampleChannelProductNo}/shopping-connect-contents`
+          } : undefined;
+
+          return NextResponse.json({
+            ok: true,
+            message: `✅ 네이버 커머스 API 연결 성공!`,
+            endpoint: 'POST /external/v1/products/search',
+            totalProducts: totalCount,
+            retrievedProducts: productCount,
+            authMethod: 'OAuth 2.0 (bcrypt)',
+            storeId: storeId,
+            urlExamples: urlExamples,
+            hint: productCount === 0 ? 
+              '⚠️ 상품이 0개입니다. 스마트스토어에 "판매중" 상태의 상품이 있는지 확인해주세요.' : 
+              '✅ 상품 데이터가 정상적으로 조회되었습니다!'
+          });
         } else {
           console.log(`   ❌ API 호출 실패`);
           console.log(`   응답: ${JSON.stringify(responseData).substring(0, 300)}`);
@@ -365,4 +297,3 @@ export async function POST(req: Request) {
     );
   }
 }
-
