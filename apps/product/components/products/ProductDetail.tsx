@@ -113,7 +113,7 @@ export default function ProductDetail({ product, relatedProducts = [] }: Product
   // 카테고리 링크 생성
   const getCategoryLink = () => {
     if (product.sourceCid) {
-      return `/category/${product.sourceCid}`;
+      return `/products?category=${product.sourceCid}`;
     }
     return '/products';
   };
