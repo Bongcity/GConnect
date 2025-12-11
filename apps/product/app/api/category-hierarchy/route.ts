@@ -14,8 +14,13 @@ export async function GET(req: NextRequest) {
     const category2 = searchParams.get('category2');
 
     // SystemSettings 확인 - DDRo 상품 표시 여부
-    const settings = await prisma.systemSettings.findFirst();
-    const showDdroProducts = settings?.showDdroProducts ?? true;
+    let showDdroProducts = true;
+    try {
+      const settings = await prisma.systemSettings.findFirst();
+      showDdroProducts = settings?.showDdroProducts ?? true;
+    } catch (settingsError) {
+      console.warn('[API /category-hierarchy] ⚠️ SystemSettings 조회 실패, 기본값(true) 사용:', settingsError);
+    }
 
     console.log(`[API /category-hierarchy] 조회 (DDRo: ${showDdroProducts ? 'ON' : 'OFF'}): category1=${category1}, category2=${category2}`);
 

@@ -13,8 +13,13 @@ export async function GET(req: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '10');
 
     // SystemSettings 확인 - DDRo 상품 표시 여부
-    const settings = await prisma.systemSettings.findFirst();
-    const showDdroProducts = settings?.showDdroProducts ?? true;
+    let showDdroProducts = true;
+    try {
+      const settings = await prisma.systemSettings.findFirst();
+      showDdroProducts = settings?.showDdroProducts ?? true;
+    } catch (settingsError) {
+      console.warn('[API /categories] ⚠️ SystemSettings 조회 실패, 기본값(true) 사용:', settingsError);
+    }
 
     console.log(`[API /categories] 카테고리 조회 시작 (DDRo: ${showDdroProducts ? 'ON' : 'OFF'})`);
 

@@ -9,8 +9,15 @@ import { ddroPrisma, prisma } from '@gconnect/db';
 export async function GET(req: NextRequest) {
   try {
     // SystemSettings 확인 - DDRo 상품 표시 여부
-    const settings = await prisma.systemSettings.findFirst();
-    if (!settings || !settings.showDdroProducts) {
+    let showDdroProducts = true;
+    try {
+      const settings = await prisma.systemSettings.findFirst();
+      showDdroProducts = settings?.showDdroProducts ?? true;
+    } catch (settingsError) {
+      // SystemSettings 테이블이 없으면 기본값 true 사용
+    }
+
+    if (!showDdroProducts) {
       console.log('[API /related-keywords] ⚠️ DDRo 상품 표시 비활성화됨');
       return NextResponse.json({ relatedKeywords: [] });
     }
