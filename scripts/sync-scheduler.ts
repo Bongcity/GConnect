@@ -27,6 +27,7 @@ import cron from 'node-cron';
 import { PrismaClient } from '@prisma/client';
 import { NaverApiClient, transformNaverProduct } from '../apps/seller/lib/naver-api';
 import { createSyncErrorNotification, createSchedulerNotification } from '../lib/notifications';
+import { getGSCClient } from '../apps/seller/lib/google-search-console';
 
 // Prisma Client 직접 생성 (DDRo import 회피)
 const prisma = new PrismaClient({
@@ -385,10 +386,50 @@ async function startScheduler(): Promise<void> {
   // 시작 알림
   await createSchedulerNotification('START', '자동 동기화 스케줄러가 시작되었습니다.');
 
-  // 1분마다 스케줄 확인
+  // 1분마다 네이버 상품 동기화 스케줄 확인
   cron.schedule('* * * * *', async () => {
     await checkAndRunSchedules();
   });
+
+  // Google Search Console 데이터 동기화 (매 시간 정각)
+  const gscClient = getGSCClient();
+  
+  if (gscClient.isEnabled()) {
+    console.log('[GSC Sync] 크론 작업 등록 중...');
+    
+    cron.schedule('0 * * * *', async () => {
+      console.log('[GSC Sync] ⏰ 크론 작업 시작');
+      
+      try {
+        const endDate = new Date();
+        const startDate = new Date();
+        startDate.setDate(startDate.getDate() - 7);
+        
+        await gscClient.syncProductStatsWithRetry({ start: startDate, end: endDate });
+        
+        console.log('[GSC Sync] ✅ 크론 작업 완료');
+      } catch (error: any) {
+        console.error('[GSC Sync] ❌ 크론 작업 최종 실패:', error.message);
+      }
+    });
+    
+    console.log('[GSC Sync] ✅ 크론 작업 등록 완료 (매 시간 정각 실행)');
+    
+    // 초기 동기화 실행
+    console.log('[GSC Sync] 🚀 초기 동기화 시작...');
+    try {
+      const endDate = new Date();
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - 7);
+      
+      await gscClient.syncProductStatsWithRetry({ start: startDate, end: endDate });
+      console.log('[GSC Sync] ✅ 초기 동기화 완료');
+    } catch (error: any) {
+      console.error('[GSC Sync] ❌ 초기 동기화 최종 실패:', error.message);
+    }
+  } else {
+    console.log('[GSC Sync] ⚠️ GSC API 비활성화 - 크론 작업 건너뜀');
+  }
 
   console.log('[Scheduler] 스케줄러가 실행 중입니다...');
 }
