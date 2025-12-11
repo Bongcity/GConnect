@@ -283,65 +283,176 @@ async function syncProducts(userId: string, user: any) {
   try {
     // 네이버 API가 활성화되어 있는지 확인
     if (!user.naverApiEnabled || !user.naverClientId || !user.naverClientSecret) {
-      // API 미설정 시 샘플 데이터 동기화
-      console.log('⚠️ 네이버 API 미설정 - 샘플 데이터 사용');
-      return { total: 0, synced: 0, failed: 0 };
+      console.log('⚠️ 네이버 API 미설정 - 동기화 건너뛰기');
+      throw new Error('네이버 API 키가 설정되지 않았습니다. 설정 페이지에서 API 키를 등록해주세요.');
+    }
+
+    // 암호화된 Client Secret 복호화
+    const { decrypt } = await import('./crypto');
+    let decryptedSecret: string;
+    
+    try {
+      decryptedSecret = decrypt(user.naverClientSecret);
+      if (!decryptedSecret) {
+        throw new Error('Client Secret 복호화 실패');
+      }
+      console.log(`✅ Client Secret 복호화 성공 (길이: ${decryptedSecret.length})`);
+    } catch (decryptError) {
+      console.error('❌ Client Secret 복호화 오류:', decryptError);
+      throw new Error('네이버 API 키 복호화에 실패했습니다. 설정을 다시 저장해주세요.');
     }
 
     // 네이버 API 클라이언트 생성
     const naverClient = new NaverApiClient({
       clientId: user.naverClientId,
-      clientSecret: user.naverClientSecret,
+      clientSecret: decryptedSecret,
     });
 
+    // 스토어 ID 조회 (URL 생성용)
+    console.log('🏪 스토어 ID 조회 중...');
+    const storeId = await naverClient.getStoreId();
+    console.log(`✅ 스토어 ID: ${storeId}`);
+
     // 네이버에서 모든 상품 조회
+    console.log('📦 네이버 상품 목록 조회 중...');
     const naverProducts = await naverClient.getAllProducts();
     total = naverProducts.length;
+    console.log(`📊 조회된 상품 수: ${total}개`);
 
-    // 각 상품을 DB에 저장/업데이트
-    for (const naverProduct of naverProducts) {
-      try {
-        const productData = transformNaverProduct(naverProduct);
-
-        // 기존 상품 확인
-        const existingProduct = await prisma.product.findFirst({
-          where: {
-            userId,
-            naverProductId: productData.naverProductId,
-          },
-        });
-
-        if (existingProduct) {
-          // 업데이트
-          await prisma.product.update({
-            where: { id: existingProduct.id },
-            data: {
-              ...productData,
-              lastSyncedAt: new Date(),
-              syncStatus: 'SYNCED',
-              syncError: null,
-            },
-          });
-        } else {
-          // 생성
-          await prisma.product.create({
-            data: {
-              userId,
-              ...productData,
-              lastSyncedAt: new Date(),
-              syncStatus: 'SYNCED',
-            },
-          });
-        }
-
-        synced++;
-      } catch (error) {
-        console.error('상품 동기화 오류:', error);
-        failed++;
-      }
+    if (total === 0) {
+      console.log('⚠️ 조회된 상품이 없습니다.');
+      return { total: 0, synced: 0, failed: 0 };
     }
-  } catch (error) {
-    console.error('상품 목록 조회 오류:', error);
+
+    // 각 상품을 DB에 저장/업데이트 (상세 정보 포함)
+    const BATCH_SIZE = 5;
+    for (let i = 0; i < naverProducts.length; i += BATCH_SIZE) {
+      const batch = naverProducts.slice(i, i + BATCH_SIZE);
+      
+      await Promise.all(
+        batch.map(async (naverProduct) => {
+          try {
+            // 상세 정보 조회
+            const channelProductNo = naverProduct.channelProducts?.[0]?.channelProductNo;
+            let detailData = null;
+            
+            if (channelProductNo) {
+              try {
+                detailData = await naverClient.getChannelProductDetail(channelProductNo.toString());
+              } catch (detailError) {
+                console.warn(`⚠️ 상품 상세 조회 실패 (channelProductNo: ${channelProductNo}):`, detailError);
+              }
+            }
+
+            // 상품 데이터 변환 (storeId와 detailData 전달)
+            const productData = transformNaverProduct(naverProduct, detailData, storeId);
+
+            // 필수 데이터 검증
+            if (!productData.name || productData.name === '상품명 없음' || !productData.naverProductId) {
+              console.warn('⚠️ 상품 데이터 불충분, 스킵:', { 
+                name: productData.name, 
+                id: productData.naverProductId 
+              });
+              failed++;
+              return;
+            }
+
+            // 기존 상품 확인
+            const existingProduct = await prisma.product.findFirst({
+              where: {
+                userId,
+                product_name: productData.name,
+              },
+            });
+
+            if (existingProduct) {
+              // 업데이트
+              await prisma.product.update({
+                where: { id: existingProduct.id },
+                data: {
+                  product_name: productData.name,
+                  sale_price: productData.price ? BigInt(productData.price) : null,
+                  discounted_sale_price: productData.salePrice ? BigInt(productData.salePrice) : null,
+                  discounted_rate: productData.discountedRate || null,
+                  representative_product_image_url: productData.imageUrl || null,
+                  product_url: productData.productUrl || null,
+                  
+                  // 스토어 정보
+                  affiliate_store_id: productData.storeId ? BigInt(productData.storeId) : null,
+                  store_name: productData.storeName || null,
+                  brand_store: productData.brandStore ? true : false,
+                  
+                  // 수수료 정보
+                  commission_rate: productData.commissionRate || null,
+                  promotion_commission_rate: productData.promotionCommissionRate || null,
+                  
+                  // 추가 이미지 (JSON 문자열)
+                  other_product_image_urls: productData.otherImageUrls && productData.otherImageUrls.length > 0
+                    ? JSON.stringify(productData.otherImageUrls)
+                    : null,
+                  
+                  // 상세 URL 및 프로모션
+                  product_description_url: productData.descriptionUrl || null,
+                  promotion_json: productData.promotionJson || null,
+                  
+                  enabled: true,
+                  updated_at: new Date(),
+                },
+              });
+              console.log(`✅ 상품 업데이트: ${productData.name}`);
+            } else {
+              // 생성
+              await prisma.product.create({
+                data: {
+                  userId,
+                  product_name: productData.name,
+                  sale_price: productData.price ? BigInt(productData.price) : null,
+                  discounted_sale_price: productData.salePrice ? BigInt(productData.salePrice) : null,
+                  discounted_rate: productData.discountedRate || null,
+                  representative_product_image_url: productData.imageUrl || null,
+                  product_url: productData.productUrl || null,
+                  product_status: 'ON_SALE',
+                  
+                  // 스토어 정보
+                  affiliate_store_id: productData.storeId ? BigInt(productData.storeId) : null,
+                  store_name: productData.storeName || null,
+                  brand_store: productData.brandStore ? true : false,
+                  
+                  // 수수료 정보
+                  commission_rate: productData.commissionRate || null,
+                  promotion_commission_rate: productData.promotionCommissionRate || null,
+                  
+                  // 추가 이미지 (JSON 문자열)
+                  other_product_image_urls: productData.otherImageUrls && productData.otherImageUrls.length > 0
+                    ? JSON.stringify(productData.otherImageUrls)
+                    : null,
+                  
+                  // 상세 URL 및 프로모션
+                  product_description_url: productData.descriptionUrl || null,
+                  promotion_json: productData.promotionJson || null,
+                  
+                  enabled: true,
+                  created_at: new Date(),
+                  updated_at: new Date(),
+                },
+              });
+              console.log(`✅ 상품 생성: ${productData.name}`);
+            }
+
+            synced++;
+          } catch (error: any) {
+            console.error('❌ 상품 동기화 오류:', error.message);
+            failed++;
+          }
+        })
+      );
+
+      console.log(`📊 진행 상황: ${Math.min(i + BATCH_SIZE, total)}/${total}`);
+    }
+
+    console.log(`✅ 동기화 완료 - 총: ${total}, 성공: ${synced}, 실패: ${failed}`);
+  } catch (error: any) {
+    console.error('❌ 상품 목록 조회 오류:', error.message);
     throw error;
   }
 
