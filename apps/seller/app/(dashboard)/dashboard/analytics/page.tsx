@@ -252,12 +252,15 @@ export default function AnalyticsPage() {
           📊 분석 데이터에 대하여
         </h3>
         <p className="text-sm text-white/70 mb-2">
-          현재 표시되는 데이터는 시뮬레이션 데이터입니다.
+          이 데이터는 Google Search Console에서 실시간으로 수집됩니다.
         </p>
-        <p className="text-sm text-white/70">
-          실제 구글 검색 성과를 확인하려면 Google Search Console과 연동하거나,
-          Google Merchant Center 연동 후 자동으로 데이터가 수집됩니다.
-        </p>
+        <ul className="text-sm text-white/70 space-y-1 list-disc list-inside">
+          <li>노출수: 구글 검색 결과에 상품이 표시된 횟수</li>
+          <li>클릭수: 사용자가 검색 결과를 클릭한 횟수</li>
+          <li>CTR: 클릭률 (클릭수 ÷ 노출수 × 100)</li>
+          <li>데이터는 2~3일 지연될 수 있습니다</li>
+          <li>매 시간 정각마다 자동으로 업데이트됩니다</li>
+        </ul>
       </div>
     </div>
   );

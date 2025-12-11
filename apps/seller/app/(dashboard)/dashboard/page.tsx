@@ -44,6 +44,7 @@ export default function DashboardPage() {
   const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showInquiryModal, setShowInquiryModal] = useState(false);
+  const [selectedPeriod, setSelectedPeriod] = useState(7); // 기본 7일
 
   useEffect(() => {
     const fetchData = async () => {
@@ -55,8 +56,8 @@ export default function DashboardPage() {
           setSubscriptionData(data);
         }
 
-        // 대시보드 통계 조회
-        const statsResponse = await fetch('/api/dashboard/stats');
+        // 대시보드 통계 조회 (기간 포함)
+        const statsResponse = await fetch(`/api/dashboard/stats?days=${selectedPeriod}`);
         if (statsResponse.ok) {
           const data = await statsResponse.json();
           setDashboardStats(data);
@@ -69,7 +70,7 @@ export default function DashboardPage() {
     };
 
     fetchData();
-  }, []);
+  }, [selectedPeriod]); // selectedPeriod 변경 시 재조회
 
   return (
     <div className="max-w-6xl">
@@ -223,10 +224,24 @@ export default function DashboardPage() {
                   </p>
                 </div>
               </div>
+              
+              {/* 기간 선택 */}
+              <div className="mb-3">
+                <select
+                  value={selectedPeriod}
+                  onChange={(e) => setSelectedPeriod(Number(e.target.value))}
+                  className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:border-brand-cyan/50 transition-colors"
+                >
+                  <option value={7}>최근 7일</option>
+                  <option value={30}>최근 30일</option>
+                  <option value={90}>최근 90일</option>
+                </select>
+              </div>
+
               <p className="text-sm text-white/60">
                 {dashboardStats?.googleExposureCount 
-                  ? '최근 7일 통계 (Google Search Console)'
-                  : '데이터 수집 중입니다'}
+                  ? 'Google Search Console'
+                  : '데이터 수집 중입니다 (2~3일 소요)'}
               </p>
             </>
           )}
