@@ -29,27 +29,43 @@ interface SubscriptionData {
   needsUpgrade: boolean;
 }
 
+interface DashboardStats {
+  totalProducts: number;
+  activeProducts: number;
+  naverApiConnected: boolean;
+  googleExposureCount: number;
+}
+
 export default function DashboardPage() {
   const { data: session } = useSession();
   const [subscriptionData, setSubscriptionData] = useState<SubscriptionData | null>(null);
+  const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const fetchSubscription = async () => {
+    const fetchData = async () => {
       try {
-        const response = await fetch('/api/user/subscription');
-        if (response.ok) {
-          const data = await response.json();
+        // 구독 정보 조회
+        const subResponse = await fetch('/api/user/subscription');
+        if (subResponse.ok) {
+          const data = await subResponse.json();
           setSubscriptionData(data);
         }
+
+        // 대시보드 통계 조회
+        const statsResponse = await fetch('/api/dashboard/stats');
+        if (statsResponse.ok) {
+          const data = await statsResponse.json();
+          setDashboardStats(data);
+        }
       } catch (error) {
-        console.error('Failed to fetch subscription:', error);
+        console.error('Failed to fetch data:', error);
       } finally {
         setIsLoading(false);
       }
     };
 
-    fetchSubscription();
+    fetchData();
   }, []);
 
   return (
@@ -127,10 +143,31 @@ export default function DashboardPage() {
         <div className="glass-card p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-white">계정 상태</h3>
-            <ClockIcon className="w-6 h-6 text-yellow-400" />
+            {isLoading ? (
+              <ClockIcon className="w-6 h-6 text-white/40 animate-pulse" />
+            ) : dashboardStats?.naverApiConnected ? (
+              <CheckCircleIcon className="w-6 h-6 text-green-400" />
+            ) : (
+              <ClockIcon className="w-6 h-6 text-yellow-400" />
+            )}
           </div>
-          <p className="text-3xl font-bold text-yellow-400 mb-2">대기 중</p>
-          <p className="text-sm text-white/60">설정을 완료해주세요</p>
+          {isLoading ? (
+            <div className="animate-pulse">
+              <div className="h-9 bg-white/10 rounded mb-2"></div>
+              <div className="h-4 bg-white/10 rounded w-2/3"></div>
+            </div>
+          ) : (
+            <>
+              <p className={`text-3xl font-bold mb-2 ${
+                dashboardStats?.naverApiConnected ? 'text-green-400' : 'text-yellow-400'
+              }`}>
+                {dashboardStats?.naverApiConnected ? '연결됨' : '대기 중'}
+              </p>
+              <p className="text-sm text-white/60">
+                {dashboardStats?.naverApiConnected ? '네이버 API 연결됨' : '설정을 완료해주세요'}
+              </p>
+            </>
+          )}
         </div>
 
         <div className="glass-card p-6">
@@ -138,8 +175,23 @@ export default function DashboardPage() {
             <h3 className="text-lg font-semibold text-white">연결된 상품</h3>
             <CheckCircleIcon className="w-6 h-6 text-brand-neon" />
           </div>
-          <p className="text-3xl font-bold text-white mb-2">0개</p>
-          <p className="text-sm text-white/60">상품을 연결하세요</p>
+          {isLoading ? (
+            <div className="animate-pulse">
+              <div className="h-9 bg-white/10 rounded mb-2"></div>
+              <div className="h-4 bg-white/10 rounded w-2/3"></div>
+            </div>
+          ) : (
+            <>
+              <p className="text-3xl font-bold text-white mb-2">
+                {dashboardStats?.activeProducts || 0}개
+              </p>
+              <p className="text-sm text-white/60">
+                {dashboardStats?.activeProducts 
+                  ? `전체 ${dashboardStats.totalProducts}개 중 ${dashboardStats.activeProducts}개 활성화`
+                  : '상품을 연결하세요'}
+              </p>
+            </>
+          )}
         </div>
 
         <div className="glass-card p-6">
@@ -147,8 +199,23 @@ export default function DashboardPage() {
             <h3 className="text-lg font-semibold text-white">구글 노출</h3>
             <RocketLaunchIcon className="w-6 h-6 text-brand-cyan" />
           </div>
-          <p className="text-3xl font-bold text-white mb-2">0회</p>
-          <p className="text-sm text-white/60">곧 시작됩니다</p>
+          {isLoading ? (
+            <div className="animate-pulse">
+              <div className="h-9 bg-white/10 rounded mb-2"></div>
+              <div className="h-4 bg-white/10 rounded w-2/3"></div>
+            </div>
+          ) : (
+            <>
+              <p className="text-3xl font-bold text-white mb-2">
+                {dashboardStats?.googleExposureCount || 0}회
+              </p>
+              <p className="text-sm text-white/60">
+                {dashboardStats?.googleExposureCount 
+                  ? '최근 30일 노출 수'
+                  : '곧 시작됩니다'}
+              </p>
+            </>
+          )}
         </div>
 
         {/* 자동 동기화 카드 */}
