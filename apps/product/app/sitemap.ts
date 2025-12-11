@@ -1,62 +1,85 @@
-import { MetadataRoute } from 'next';
+import { NextResponse } from 'next/server';
 
-export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+// 이미지 사이트맵을 포함한 XML 생성
+export async function GET() {
   const baseUrl = process.env.NEXT_PUBLIC_PRODUCT_URL || 'https://www.gconnect.kr';
 
-  // 정적 페이지 (항상 포함)
-  const staticPages: MetadataRoute.Sitemap = [
-    {
-      url: baseUrl,
-      lastModified: new Date(),
-      changeFrequency: 'daily',
-      priority: 1,
-    },
-    {
-      url: `${baseUrl}/products`,
-      lastModified: new Date(),
-      changeFrequency: 'hourly',
-      priority: 0.9,
-    },
-    {
-      url: `${baseUrl}/search`,
-      lastModified: new Date(),
-      changeFrequency: 'weekly',
-      priority: 0.7,
-    },
+  let sitemap = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">`;
+
+  // 정적 페이지
+  const staticPages = [
+    { url: baseUrl, changefreq: 'daily', priority: '1' },
+    { url: `${baseUrl}/products`, changefreq: 'hourly', priority: '0.9' },
+    { url: `${baseUrl}/search`, changefreq: 'weekly', priority: '0.7' },
   ];
 
-  // 상품 및 카테고리 페이지 동적 추가
-  let dynamicPages: MetadataRoute.Sitemap = [];
-  
-  try {
-    // 동적 import로 DB 연결 오류 격리
-    const { getComposedProducts } = await import('@/lib/products');
-    const { createSlug } = await import('@/lib/utils/slug');
-    const { prisma } = await import('@gconnect/db');
+  staticPages.forEach(page => {
+    sitemap += `
+  <url>
+    <loc>${page.url}</loc>
+    <lastmod>${new Date().toISOString()}</lastmod>
+    <changefreq>${page.changefreq}</changefreq>
+    <priority>${page.priority}</priority>
+  </url>`;
+  });
 
-    // 셀러 상품 조회
+  // 상품 및 카테고리 페이지 동적 추가
+  try {
+    const { prisma } = await import('@gconnect/db');
+    const { createSlug } = await import('@/lib/utils/slug');
+
+    // 셀러 상품 조회 (이미지 포함)
     try {
-      const { combined } = await getComposedProducts({ 
-        pageSize: 5000,
-        sortBy: 'latest'
+      const products = await prisma.product.findMany({
+        where: {
+          enabled: true,
+        },
+        select: {
+          id: true,
+          product_name: true,
+          representative_product_image_url: true,
+          updated_at: true,
+          created_at: true,
+        },
+        orderBy: { created_at: 'desc' },
+        take: 5000,
       });
-      
-      const productPages = combined
-        .filter(product => product.id.startsWith('SELLER_'))
-        .map((product) => {
-          const numericId = product.id.replace(/^SELLER_/, '');
-          const slug = createSlug(product.productName);
-          
-          return {
-            url: `${baseUrl}/products/SELLER/${numericId}/${encodeURIComponent(slug)}`,
-            lastModified: product.updatedAt || product.createdAt || new Date(),
-            changeFrequency: 'daily' as const,
-            priority: 0.8,
-          };
-        });
-      
-      dynamicPages.push(...productPages);
-      console.log(`[Sitemap] ✅ ${productPages.length}개 상품 페이지 생성`);
+
+      products.forEach(product => {
+        const numericId = product.id.toString();
+        const slug = createSlug(product.product_name || '');
+        const productUrl = `${baseUrl}/products/SELLER/${numericId}/${encodeURIComponent(slug)}`;
+        const lastmod = (product.updated_at || product.created_at || new Date()).toISOString();
+
+        sitemap += `
+  <url>
+    <loc>${productUrl}</loc>
+    <lastmod>${lastmod}</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>`;
+
+        // 대표 이미지가 있으면 추가
+        if (product.representative_product_image_url) {
+          const imageUrl = product.representative_product_image_url
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&apos;');
+
+          sitemap += `
+    <image:image>
+      <image:loc>${imageUrl}</image:loc>
+    </image:image>`;
+        }
+
+        sitemap += `
+  </url>`;
+      });
+
+      console.log(`[Sitemap] ✅ ${products.length}개 상품 페이지 생성 (이미지 포함)`);
     } catch (productError) {
       console.error('[Sitemap] ⚠️ 상품 페이지 생성 실패:', productError);
     }
@@ -75,17 +98,22 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         distinct: ['source_cid']
       });
 
-      const categoryPages = categories
-        .filter(cat => cat.source_cid)
-        .map((category) => ({
-          url: `${baseUrl}/products?category=${category.source_cid}`,
-          lastModified: category.updated_at || new Date(),
-          changeFrequency: 'daily' as const,
-          priority: 0.7,
-        }));
+      categories.forEach(category => {
+        if (category.source_cid) {
+          const categoryUrl = `${baseUrl}/products?category=${category.source_cid}`;
+          const lastmod = (category.updated_at || new Date()).toISOString();
 
-      dynamicPages.push(...categoryPages);
-      console.log(`[Sitemap] ✅ ${categoryPages.length}개 카테고리 페이지 생성`);
+          sitemap += `
+  <url>
+    <loc>${categoryUrl}</loc>
+    <lastmod>${lastmod}</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.7</priority>
+  </url>`;
+        }
+      });
+
+      console.log(`[Sitemap] ✅ ${categories.length}개 카테고리 페이지 생성`);
     } catch (categoryError) {
       console.error('[Sitemap] ⚠️ 카테고리 페이지 생성 실패:', categoryError);
     }
@@ -94,6 +122,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     console.error('[Sitemap] ⚠️ 모듈 import 실패 (정적 페이지만 제공):', importError);
   }
 
-  console.log(`[Sitemap] 총 ${staticPages.length + dynamicPages.length}개 URL 생성`);
-  return [...staticPages, ...dynamicPages];
+  sitemap += `
+</urlset>`;
+
+  return new NextResponse(sitemap, {
+    headers: {
+      'Content-Type': 'application/xml',
+      'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=86400',
+    },
+  });
 }
