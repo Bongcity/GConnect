@@ -92,31 +92,31 @@ export default function LogsPage() {
       {/* 로그 목록 */}
       <div className="glass-card overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table className="w-full table-fixed">
             <thead>
               <tr className="border-b border-white/10">
-                <th className="px-6 py-4 text-left text-sm font-semibold">
+                <th className="px-4 py-4 text-left text-sm font-semibold text-white w-[140px]">
                   시간
                 </th>
-                <th className="px-6 py-4 text-left text-sm font-semibold">
+                <th className="px-4 py-4 text-left text-sm font-semibold text-white w-[160px]">
                   사용자
                 </th>
-                <th className="px-6 py-4 text-left text-sm font-semibold">
+                <th className="px-4 py-4 text-left text-sm font-semibold text-white w-[100px]">
                   유형
                 </th>
-                <th className="px-6 py-4 text-left text-sm font-semibold">
+                <th className="px-4 py-4 text-left text-sm font-semibold text-white w-[80px]">
                   상태
                 </th>
-                <th className="px-6 py-4 text-right text-sm font-semibold">
+                <th className="px-4 py-4 text-right text-sm font-semibold text-white w-[60px]">
                   전체
                 </th>
-                <th className="px-6 py-4 text-right text-sm font-semibold">
+                <th className="px-4 py-4 text-right text-sm font-semibold text-white w-[60px]">
                   성공
                 </th>
-                <th className="px-6 py-4 text-right text-sm font-semibold">
+                <th className="px-4 py-4 text-right text-sm font-semibold text-white w-[60px]">
                   실패
                 </th>
-                <th className="px-6 py-4 text-left text-sm font-semibold">
+                <th className="px-4 py-4 text-left text-sm font-semibold text-white">
                   에러
                 </th>
               </tr>
@@ -137,28 +137,45 @@ export default function LogsPage() {
                     key={log.id}
                     className="border-b border-white/5 hover:bg-white/5 transition-colors"
                   >
-                    <td className="px-6 py-4 text-sm text-white/60">
+                    <td className="px-4 py-4 text-sm text-white/60 whitespace-nowrap">
                       {format(
                         new Date(log.createdAt),
                         'yyyy-MM-dd HH:mm:ss'
                       )}
                     </td>
-                    <td className="px-6 py-4 text-sm">
+                    <td className="px-4 py-4 text-sm text-white truncate" title={log.user.shopName || log.user.email}>
                       {log.user.shopName || log.user.email}
                     </td>
-                    <td className="px-6 py-4 text-sm">{log.syncType}</td>
-                    <td className="px-6 py-4">{getStatusBadge(log.status)}</td>
-                    <td className="px-6 py-4 text-sm text-right">
+                    <td className="px-4 py-4 text-sm text-white">{log.syncType}</td>
+                    <td className="px-4 py-4">{getStatusBadge(log.status)}</td>
+                    <td className="px-4 py-4 text-sm text-right text-white">
                       {log.itemsTotal}
                     </td>
-                    <td className="px-6 py-4 text-sm text-right text-green-400">
+                    <td className="px-4 py-4 text-sm text-right text-green-400">
                       {log.itemsSynced}
                     </td>
-                    <td className="px-6 py-4 text-sm text-right text-red-400">
+                    <td className="px-4 py-4 text-sm text-right text-red-400">
                       {log.itemsFailed}
                     </td>
-                    <td className="px-6 py-4 text-sm text-red-400/80">
-                      {log.errorLog || '-'}
+                    <td className="px-4 py-4 text-sm text-red-400/80">
+                      {log.errorLog ? (
+                        <div className="group relative">
+                          <span className="truncate block cursor-help">
+                            {log.errorLog.length > 50 
+                              ? `${log.errorLog.substring(0, 50)}...` 
+                              : log.errorLog}
+                          </span>
+                          {log.errorLog.length > 50 && (
+                            <div className="hidden group-hover:block absolute z-50 left-0 top-full mt-2 p-3 bg-gray-900 border border-red-500/30 rounded-lg shadow-xl max-w-md">
+                              <p className="text-xs text-red-400 break-words whitespace-pre-wrap">
+                                {log.errorLog}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        '-'
+                      )}
                     </td>
                   </tr>
                 ))
