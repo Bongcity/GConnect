@@ -201,11 +201,31 @@ export async function POST(req: Request) {
             console.warn('⚠️ 채널 정보 조회 실패:', err);
           }
 
-          // URL 예시 생성
-          const sampleChannelProductNo = responseData.products?.[0]?.channelProducts?.[0]?.channelProductNo;
+          // URL 및 가격 예시 생성
+          const sampleProduct = responseData.products?.[0]?.channelProducts?.[0];
+          const sampleChannelProductNo = sampleProduct?.channelProductNo;
+          
           const urlExamples = sampleChannelProductNo ? {
             productUrl: `https://smartstore.naver.com/${storeId}/products/${sampleChannelProductNo}`,
             productDescriptionUrl: `https://m.smartstore.naver.com/${storeId}/products/${sampleChannelProductNo}/shopping-connect-contents`
+          } : undefined;
+          
+          // 가격 정보 예시
+          const priceExample = sampleProduct ? {
+            salePrice: sampleProduct.salePrice || 0,  // 원가 (정가)
+            discountedPrice: sampleProduct.discountedPrice || sampleProduct.salePrice || 0,  // 할인가
+            discountRate: (() => {
+              const orig = sampleProduct.salePrice || 0;
+              const disc = sampleProduct.discountedPrice || sampleProduct.salePrice || 0;
+              return orig > 0 && disc < orig 
+                ? parseFloat(((orig - disc) / orig * 100).toFixed(2)) 
+                : 0;
+            })(),
+            explanation: {
+              salePrice: '원가 (정가) - sale_price 컬럼에 저장',
+              discountedPrice: '할인가 (실판가) - discounted_sale_price 컬럼에 저장',
+              discountRate: '할인율 (%) - discounted_rate 컬럼에 저장'
+            }
           } : undefined;
 
           return NextResponse.json({
@@ -217,6 +237,7 @@ export async function POST(req: Request) {
             authMethod: 'OAuth 2.0 (bcrypt)',
             storeId: storeId,
             urlExamples: urlExamples,
+            priceExample: priceExample,
             hint: productCount === 0 ? 
               '⚠️ 상품이 0개입니다. 스마트스토어에 "판매중" 상태의 상품이 있는지 확인해주세요.' : 
               '✅ 상품 데이터가 정상적으로 조회되었습니다!'

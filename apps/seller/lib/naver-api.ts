@@ -575,8 +575,16 @@ export function transformNaverProduct(naverProduct: any, detailData?: any, store
   // 상품명
   const productName = channelProduct.name || '상품명 없음';
 
-  // 가격 (할인가가 있으면 할인가, 없으면 원가)
-  const salePrice = channelProduct.discountedPrice || channelProduct.salePrice || 0;
+  // 가격 정보 (네이버 API 필드)
+  // - salePrice: 판매가 (원가, 정가)
+  // - discountedPrice: 할인가 (실제 판매 가격)
+  const originalPrice = channelProduct.salePrice || 0;  // 원가 (정가)
+  const discountedPrice = channelProduct.discountedPrice || channelProduct.salePrice || 0;  // 할인가 (실판가)
+  
+  // 할인율 계산
+  const discountRate = originalPrice > 0 && discountedPrice < originalPrice
+    ? parseFloat(((originalPrice - discountedPrice) / originalPrice * 100).toFixed(2))
+    : 0;
 
   // 재고
   const stockQuantity = channelProduct.stockQuantity;
@@ -592,18 +600,12 @@ export function transformNaverProduct(naverProduct: any, detailData?: any, store
   const productUrl = storeId && channelProduct.channelProductNo 
     ? `https://smartstore.naver.com/${storeId}/products/${channelProduct.channelProductNo}`
     : undefined;
-
-  // 할인율 계산 (affiliate_products.discounted_rate에 저장)
-  const originalPrice = channelProduct.salePrice || 0;
-  const discountedPrice = channelProduct.discountedPrice || channelProduct.salePrice || 0;
-  const discountRate = originalPrice > 0 && discountedPrice < originalPrice
-    ? parseFloat(((originalPrice - discountedPrice) / originalPrice * 100).toFixed(2))
-    : 0;
   
   console.log('💸 가격/할인율 정보:', { 
-    originalPrice, 
-    discountedPrice, 
+    originalPrice: `${originalPrice}원 (원가)`, 
+    discountedPrice: `${discountedPrice}원 (할인가)`, 
     discountRate: `${discountRate}%`,
+    '가격차이': originalPrice - discountedPrice,
     '원본필드들': {
       'channelProduct.salePrice': channelProduct.salePrice,
       'channelProduct.discountedPrice': channelProduct.discountedPrice,
@@ -741,15 +743,15 @@ export function transformNaverProduct(naverProduct: any, detailData?: any, store
     }
   });
 
-  // 상세 정보 추출 (discount_rate 제거 - affiliate_products.discounted_rate 사용)
+  // 상세 정보 추출
   const detail: ProductDetail = {
     originProductNo: naverProduct.originProductNo || 0,
     channelProductNo: channelProduct.channelProductNo || 0,
     statusType: channelProduct.statusType || '',
     displayStatus: channelProduct.channelProductDisplayStatusType || '',
-    originalPrice: originalPrice,
+    originalPrice: originalPrice,  // 원가 (정가)
     discountRate: 0, // deprecated - affiliate_products.discounted_rate 사용
-    mobileDiscountedPrice: channelProduct.mobileDiscountedPrice || discountedPrice,
+    mobileDiscountedPrice: channelProduct.mobileDiscountedPrice || discountedPrice,  // 모바일 할인가
     deliveryAttributeType: channelProduct.deliveryAttributeType || '',
     deliveryFee: channelProduct.deliveryFee || 0,
     returnFee: channelProduct.returnFee || 0,
@@ -773,8 +775,8 @@ export function transformNaverProduct(naverProduct: any, detailData?: any, store
   const result: TransformedProduct = {
     name: productName,
     description: channelProduct.description,
-    price: salePrice,
-    salePrice: salePrice,
+    price: originalPrice,        // 원가 (정가)
+    salePrice: discountedPrice,  // 할인가 (실판가)
     stockQuantity: stockQuantity,
     imageUrl: imageUrl,
     thumbnailUrl: imageUrl,
