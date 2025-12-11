@@ -397,6 +397,11 @@ model Webhook {
   triggerOnSuccess Boolean  @default(true)
   triggerOnError   Boolean  @default(true)
   
+  // 재시도 설정
+  retryEnabled    Boolean  @default(false)
+  maxRetries      Int      @default(3)
+  retryDelay      Int      @default(5) // 초 단위
+  
   // 인증 (선택)
   authType        String?  @db.NVarChar(50) // NONE, BEARER, BASIC
   authValue       String?  @db.NVarChar(500) // 암호화된 토큰/비밀번호

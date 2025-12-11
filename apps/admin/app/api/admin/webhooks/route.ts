@@ -49,7 +49,18 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const { userId, name, url, type, isEnabled, triggerOnSuccess, triggerOnError } = body;
+    const { 
+      userId, 
+      name, 
+      url, 
+      type, 
+      isEnabled, 
+      triggerOnSuccess, 
+      triggerOnError,
+      retryEnabled,
+      maxRetries,
+      retryDelay,
+    } = body;
 
     // 사용자 존재 확인
     const user = await prisma.user.findUnique({
@@ -70,6 +81,9 @@ export async function POST(req: Request) {
         isEnabled,
         triggerOnSuccess,
         triggerOnError,
+        retryEnabled: retryEnabled || false,
+        maxRetries: maxRetries || 3,
+        retryDelay: retryDelay || 5,
       },
       include: {
         user: {

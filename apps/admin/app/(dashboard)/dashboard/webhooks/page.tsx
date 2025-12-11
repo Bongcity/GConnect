@@ -9,6 +9,7 @@ import {
   PlayIcon,
   CheckCircleIcon,
   XCircleIcon,
+  DocumentTextIcon,
 } from '@heroicons/react/24/outline';
 
 interface Webhook {
@@ -25,11 +26,25 @@ interface Webhook {
   isEnabled: boolean;
   triggerOnSuccess: boolean;
   triggerOnError: boolean;
+  retryEnabled: boolean;
+  maxRetries: number;
+  retryDelay: number;
   lastTriggered: string | null;
   lastStatus: string | null;
   totalTriggers: number;
   successTriggers: number;
   failedTriggers: number;
+}
+
+interface TestResult {
+  id: string;
+  status: 'SUCCESS' | 'FAILED';
+  responseStatus: number | null;
+  responseTime: number;
+  responseBody: string | null;
+  errorMessage: string | null;
+  requestUrl: string;
+  createdAt: string;
 }
 
 export default function AdminWebhooksPage() {
@@ -46,7 +61,19 @@ export default function AdminWebhooksPage() {
     isEnabled: true,
     triggerOnSuccess: true,
     triggerOnError: true,
+    retryEnabled: false,
+    maxRetries: 3,
+    retryDelay: 5,
   });
+  const [testingWebhookId, setTestingWebhookId] = useState<string | null>(null);
+  const [testResult, setTestResult] = useState<TestResult | null>(null);
+  const [showTestResultModal, setShowTestResultModal] = useState(false);
+  const [showLogsModal, setShowLogsModal] = useState(false);
+  const [selectedWebhookLogs, setSelectedWebhookLogs] = useState<any[]>([]);
+  const [selectedWebhookName, setSelectedWebhookName] = useState('');
+  const [isLoadingLogs, setIsLoadingLogs] = useState(false);
+  const [selectedLogDetail, setSelectedLogDetail] = useState<any>(null);
+  const [showLogDetailModal, setShowLogDetailModal] = useState(false);
 
   useEffect(() => {
     fetchWebhooks();
@@ -76,11 +103,14 @@ export default function AdminWebhooksPage() {
       isEnabled: true,
       triggerOnSuccess: true,
       triggerOnError: true,
+      retryEnabled: false,
+      maxRetries: 3,
+      retryDelay: 5,
     });
     setIsModalOpen(true);
   };
 
-  const openEditModal = (webhook: Webhook) => {
+  const openEditModal = (webhook: any) => {
     setEditingWebhook(webhook);
     setFormData({
       userId: webhook.user.id,
@@ -90,6 +120,9 @@ export default function AdminWebhooksPage() {
       isEnabled: webhook.isEnabled,
       triggerOnSuccess: webhook.triggerOnSuccess,
       triggerOnError: webhook.triggerOnError,
+      retryEnabled: webhook.retryEnabled || false,
+      maxRetries: webhook.maxRetries || 3,
+      retryDelay: webhook.retryDelay || 5,
     });
     setIsModalOpen(true);
   };
@@ -157,6 +190,67 @@ export default function AdminWebhooksPage() {
       }
     } catch (error) {
       console.error('Failed to toggle webhook:', error);
+    }
+  };
+
+  const handleTest = async (webhookId: string) => {
+    setTestingWebhookId(webhookId);
+    try {
+      const response = await fetch(`/api/admin/webhooks/${webhookId}/test`, {
+        method: 'POST',
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setTestResult(data.log);
+        setShowTestResultModal(true);
+        fetchWebhooks(); // 통계 업데이트 반영
+      } else {
+        const error = await response.json();
+        alert(error.error || '테스트에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('Failed to test webhook:', error);
+      alert('테스트에 실패했습니다.');
+    } finally {
+      setTestingWebhookId(null);
+    }
+  };
+
+  const handleViewLogs = async (webhookId: string, webhookName: string) => {
+    setIsLoadingLogs(true);
+    setSelectedWebhookName(webhookName);
+    setShowLogsModal(true);
+    
+    try {
+      const response = await fetch(`/api/admin/webhooks/${webhookId}/logs?limit=20`);
+      if (response.ok) {
+        const data = await response.json();
+        setSelectedWebhookLogs(data.logs || []);
+      } else {
+        alert('로그를 불러오지 못했습니다.');
+      }
+    } catch (error) {
+      console.error('Failed to fetch logs:', error);
+      alert('로그를 불러오지 못했습니다.');
+    } finally {
+      setIsLoadingLogs(false);
+    }
+  };
+
+  const handleViewLogDetail = async (logId: string) => {
+    try {
+      const response = await fetch(`/api/admin/webhooks/logs/${logId}`);
+      if (response.ok) {
+        const data = await response.json();
+        setSelectedLogDetail(data.log);
+        setShowLogDetailModal(true);
+      } else {
+        alert('로그 상세 정보를 불러오지 못했습니다.');
+      }
+    } catch (error) {
+      console.error('Failed to fetch log detail:', error);
+      alert('로그 상세 정보를 불러오지 못했습니다.');
     }
   };
 
@@ -358,6 +452,32 @@ export default function AdminWebhooksPage() {
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
                         <button
+                          onClick={() => handleViewLogs(webhook.id, webhook.name)}
+                          className="btn-secondary text-sm flex items-center gap-1"
+                          title="로그 보기"
+                        >
+                          <DocumentTextIcon className="w-4 h-4" />
+                          로그
+                        </button>
+                        <button
+                          onClick={() => handleTest(webhook.id)}
+                          disabled={testingWebhookId === webhook.id}
+                          className="btn-secondary text-sm flex items-center gap-1"
+                          title="웹훅 테스트"
+                        >
+                          {testingWebhookId === webhook.id ? (
+                            <>
+                              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                              테스트 중...
+                            </>
+                          ) : (
+                            <>
+                              <PlayIcon className="w-4 h-4" />
+                              테스트
+                            </>
+                          )}
+                        </button>
+                        <button
                           onClick={() => toggleWebhook(webhook.id, webhook.isEnabled)}
                           className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                             webhook.isEnabled
@@ -403,6 +523,300 @@ export default function AdminWebhooksPage() {
           <li>사용자는 Seller 사이트에서 실행 결과만 확인할 수 있습니다</li>
         </ul>
       </div>
+
+      {/* 테스트 결과 모달 */}
+      {showTestResultModal && testResult && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="glass-card max-w-3xl w-full p-8 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold text-white">웹훅 테스트 결과</h2>
+              <button
+                onClick={() => setShowTestResultModal(false)}
+                className="text-white/60 hover:text-white"
+              >
+                <XCircleIcon className="w-6 h-6" />
+              </button>
+            </div>
+
+            {/* 상태 */}
+            <div className="mb-6">
+              {testResult.status === 'SUCCESS' ? (
+                <div className="flex items-center gap-2 p-4 rounded-lg bg-green-500/20 border border-green-500/30">
+                  <CheckCircleIcon className="w-6 h-6 text-green-400" />
+                  <div>
+                    <p className="text-lg font-semibold text-green-400">테스트 성공</p>
+                    <p className="text-sm text-white/70">웹훅이 정상적으로 전송되었습니다</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 p-4 rounded-lg bg-red-500/20 border border-red-500/30">
+                  <XCircleIcon className="w-6 h-6 text-red-400" />
+                  <div>
+                    <p className="text-lg font-semibold text-red-400">테스트 실패</p>
+                    <p className="text-sm text-white/70">웹훅 전송에 실패했습니다</p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* 상세 정보 */}
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="p-4 rounded-lg bg-white/5 border border-white/10">
+                  <p className="text-sm text-white/60 mb-1">응답 상태</p>
+                  <p className="text-lg font-semibold text-white">
+                    {testResult.responseStatus || 'N/A'}
+                  </p>
+                </div>
+                <div className="p-4 rounded-lg bg-white/5 border border-white/10">
+                  <p className="text-sm text-white/60 mb-1">응답 시간</p>
+                  <p className="text-lg font-semibold text-white">
+                    {testResult.responseTime}ms
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-4 rounded-lg bg-white/5 border border-white/10">
+                <p className="text-sm text-white/60 mb-2">요청 URL</p>
+                <code className="text-sm text-brand-cyan break-all">
+                  {testResult.requestUrl}
+                </code>
+              </div>
+
+              {testResult.errorMessage && (
+                <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/20">
+                  <p className="text-sm text-red-400 mb-2">에러 메시지</p>
+                  <pre className="text-sm text-white/80 whitespace-pre-wrap break-words">
+                    {testResult.errorMessage}
+                  </pre>
+                </div>
+              )}
+
+              {testResult.responseBody && (
+                <div className="p-4 rounded-lg bg-white/5 border border-white/10">
+                  <p className="text-sm text-white/60 mb-2">응답 본문</p>
+                  <pre className="text-sm text-white/80 whitespace-pre-wrap break-words max-h-60 overflow-y-auto">
+                    {testResult.responseBody}
+                  </pre>
+                </div>
+              )}
+
+              <div className="p-4 rounded-lg bg-white/5 border border-white/10">
+                <p className="text-sm text-white/60 mb-1">테스트 시간</p>
+                <p className="text-sm text-white">
+                  {new Date(testResult.createdAt).toLocaleString('ko-KR')}
+                </p>
+              </div>
+            </div>
+
+            {/* 닫기 버튼 */}
+            <div className="mt-6 flex justify-end">
+              <button
+                onClick={() => setShowTestResultModal(false)}
+                className="btn-primary"
+              >
+                닫기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 로그 목록 모달 */}
+      {showLogsModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="glass-card max-w-5xl w-full p-8 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold text-white">
+                {selectedWebhookName} - 실행 로그
+              </h2>
+              <button
+                onClick={() => setShowLogsModal(false)}
+                className="text-white/60 hover:text-white"
+              >
+                <XCircleIcon className="w-6 h-6" />
+              </button>
+            </div>
+
+            {isLoadingLogs ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="text-white/60">로딩 중...</div>
+              </div>
+            ) : selectedWebhookLogs.length === 0 ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="text-white/60">로그가 없습니다.</div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {selectedWebhookLogs.map((log) => (
+                  <div
+                    key={log.id}
+                    onClick={() => handleViewLogDetail(log.id)}
+                    className="p-4 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 cursor-pointer transition-colors"
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        {log.status === 'SUCCESS' ? (
+                          <CheckCircleIcon className="w-5 h-5 text-green-400" />
+                        ) : (
+                          <XCircleIcon className="w-5 h-5 text-red-400" />
+                        )}
+                        <span className={`font-semibold ${
+                          log.status === 'SUCCESS' ? 'text-green-400' : 'text-red-400'
+                        }`}>
+                          {log.status === 'SUCCESS' ? '성공' : '실패'}
+                        </span>
+                      </div>
+                      <span className="text-sm text-white/60">
+                        {new Date(log.createdAt).toLocaleString('ko-KR')}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-4 text-sm">
+                      <div>
+                        <p className="text-white/50">응답 상태</p>
+                        <p className="text-white">{log.responseStatus || 'N/A'}</p>
+                      </div>
+                      <div>
+                        <p className="text-white/50">응답 시간</p>
+                        <p className="text-white">{log.responseTime}ms</p>
+                      </div>
+                      <div>
+                        <p className="text-white/50">메서드</p>
+                        <p className="text-white">{log.requestMethod}</p>
+                      </div>
+                    </div>
+                    {log.errorMessage && (
+                      <div className="mt-2 p-2 rounded bg-red-500/10 border border-red-500/20">
+                        <p className="text-xs text-red-400 truncate">
+                          {log.errorMessage}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* 닫기 버튼 */}
+            <div className="mt-6 flex justify-end">
+              <button
+                onClick={() => setShowLogsModal(false)}
+                className="btn-primary"
+              >
+                닫기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 로그 상세 모달 */}
+      {showLogDetailModal && selectedLogDetail && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
+          <div className="glass-card max-w-4xl w-full p-8 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold text-white">로그 상세</h2>
+              <button
+                onClick={() => setShowLogDetailModal(false)}
+                className="text-white/60 hover:text-white"
+              >
+                <XCircleIcon className="w-6 h-6" />
+              </button>
+            </div>
+
+            {/* 상태 */}
+            <div className="mb-6">
+              {selectedLogDetail.status === 'SUCCESS' ? (
+                <div className="flex items-center gap-2 p-4 rounded-lg bg-green-500/20 border border-green-500/30">
+                  <CheckCircleIcon className="w-6 h-6 text-green-400" />
+                  <div>
+                    <p className="text-lg font-semibold text-green-400">성공</p>
+                    <p className="text-sm text-white/70">웹훅이 정상적으로 전송되었습니다</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 p-4 rounded-lg bg-red-500/20 border border-red-500/30">
+                  <XCircleIcon className="w-6 h-6 text-red-400" />
+                  <div>
+                    <p className="text-lg font-semibold text-red-400">실패</p>
+                    <p className="text-sm text-white/70">웹훅 전송에 실패했습니다</p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* 기본 정보 */}
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="p-4 rounded-lg bg-white/5 border border-white/10">
+                  <p className="text-sm text-white/60 mb-1">응답 상태</p>
+                  <p className="text-lg font-semibold text-white">
+                    {selectedLogDetail.responseStatus || 'N/A'}
+                  </p>
+                </div>
+                <div className="p-4 rounded-lg bg-white/5 border border-white/10">
+                  <p className="text-sm text-white/60 mb-1">응답 시간</p>
+                  <p className="text-lg font-semibold text-white">
+                    {selectedLogDetail.responseTime}ms
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-4 rounded-lg bg-white/5 border border-white/10">
+                <p className="text-sm text-white/60 mb-2">요청 URL</p>
+                <code className="text-sm text-brand-cyan break-all">
+                  {selectedLogDetail.requestUrl}
+                </code>
+              </div>
+
+              <div className="p-4 rounded-lg bg-white/5 border border-white/10">
+                <p className="text-sm text-white/60 mb-1">실행 시간</p>
+                <p className="text-sm text-white">
+                  {new Date(selectedLogDetail.createdAt).toLocaleString('ko-KR')}
+                </p>
+              </div>
+            </div>
+
+            {/* 에러 메시지 */}
+            {selectedLogDetail.errorMessage && (
+              <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/20 mt-4">
+                <p className="text-sm text-red-400 mb-2">에러 메시지</p>
+                <pre className="text-sm text-white/80 whitespace-pre-wrap break-words">
+                  {selectedLogDetail.errorMessage}
+                </pre>
+              </div>
+            )}
+
+            {/* 요청 정보 */}
+            <div className="p-4 rounded-lg bg-white/5 border border-white/10 mt-4">
+              <p className="text-sm text-white/60 mb-2">요청 본문</p>
+              <pre className="text-sm text-white/80 whitespace-pre-wrap break-words max-h-60 overflow-y-auto">
+                {selectedLogDetail.requestBody}
+              </pre>
+            </div>
+
+            {/* 응답 정보 */}
+            {selectedLogDetail.responseBody && (
+              <div className="p-4 rounded-lg bg-white/5 border border-white/10 mt-4">
+                <p className="text-sm text-white/60 mb-2">응답 본문</p>
+                <pre className="text-sm text-white/80 whitespace-pre-wrap break-words max-h-60 overflow-y-auto">
+                  {selectedLogDetail.responseBody}
+                </pre>
+              </div>
+            )}
+
+            {/* 닫기 버튼 */}
+            <div className="mt-6 flex justify-end">
+              <button
+                onClick={() => setShowLogDetailModal(false)}
+                className="btn-primary"
+              >
+                닫기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 웹훅 추가/수정 모달 */}
       {isModalOpen && (
@@ -514,6 +928,52 @@ export default function AdminWebhooksPage() {
                   />
                   <span className="text-white/80 font-medium">웹훅 활성화</span>
                 </label>
+              </div>
+
+              {/* 재시도 설정 */}
+              <div className="space-y-4 p-4 rounded-lg bg-white/5 border border-white/10">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.retryEnabled}
+                    onChange={(e) => setFormData({ ...formData, retryEnabled: e.target.checked })}
+                    className="w-5 h-5 rounded border-white/20 bg-white/5 text-brand-neon focus:ring-brand-neon/50"
+                  />
+                  <span className="text-white/80 font-medium">실패 시 자동 재시도</span>
+                </label>
+
+                {formData.retryEnabled && (
+                  <div className="grid grid-cols-2 gap-4 pl-8">
+                    <div>
+                      <label className="block text-sm font-medium text-white/80 mb-2">
+                        최대 재시도 횟수
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="10"
+                        value={formData.maxRetries}
+                        onChange={(e) => setFormData({ ...formData, maxRetries: parseInt(e.target.value) })}
+                        className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:border-brand-neon/50"
+                      />
+                      <p className="text-xs text-white/50 mt-1">1~10회</p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-white/80 mb-2">
+                        재시도 간격 (초)
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="60"
+                        value={formData.retryDelay}
+                        onChange={(e) => setFormData({ ...formData, retryDelay: parseInt(e.target.value) })}
+                        className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:border-brand-neon/50"
+                      />
+                      <p className="text-xs text-white/50 mt-1">1~60초</p>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* 버튼 */}

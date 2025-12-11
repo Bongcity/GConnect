@@ -15,7 +15,17 @@ export async function PATCH(
     }
 
     const body = await req.json();
-    const { name, url, type, isEnabled, triggerOnSuccess, triggerOnError } = body;
+    const { 
+      name, 
+      url, 
+      type, 
+      isEnabled, 
+      triggerOnSuccess, 
+      triggerOnError,
+      retryEnabled,
+      maxRetries,
+      retryDelay,
+    } = body;
 
     // 웹훅 수정
     const webhook = await prisma.webhook.update({
@@ -27,6 +37,9 @@ export async function PATCH(
         ...(isEnabled !== undefined && { isEnabled }),
         ...(triggerOnSuccess !== undefined && { triggerOnSuccess }),
         ...(triggerOnError !== undefined && { triggerOnError }),
+        ...(retryEnabled !== undefined && { retryEnabled }),
+        ...(maxRetries !== undefined && { maxRetries }),
+        ...(retryDelay !== undefined && { retryDelay }),
       },
       include: {
         user: {

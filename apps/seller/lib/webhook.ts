@@ -55,7 +55,7 @@ export async function triggerWebhooks(userId: string, payload: WebhookPayload) {
 }
 
 /**
- * 웹훅 실행
+ * 웹훅 실행 (재시도 포함)
  */
 async function executeWebhook(webhook: any, payload: WebhookPayload) {
   const startTime = Date.now();
@@ -68,58 +68,100 @@ async function executeWebhook(webhook: any, payload: WebhookPayload) {
     'Content-Type': 'application/json',
   };
 
-  try {
-    // 웹훅 타입별 처리
+  // 웹훅 타입별 페이로드 준비
+  if (webhook.type === 'SLACK') {
+    requestBody = JSON.stringify(buildSlackPayload(payload));
+  } else if (webhook.type === 'DISCORD') {
+    requestBody = JSON.stringify(buildDiscordPayload(payload));
+  } else {
+    // CUSTOM
+    requestBody = JSON.stringify(payload);
+  }
 
-    if (webhook.type === 'SLACK') {
-      requestBody = JSON.stringify(buildSlackPayload(payload));
-    } else if (webhook.type === 'DISCORD') {
-      requestBody = JSON.stringify(buildDiscordPayload(payload));
-    } else {
-      // CUSTOM
-      requestBody = JSON.stringify(payload);
-    }
-
-    // 인증 헤더 추가
-    if (webhook.authType && webhook.authValue) {
+  // 인증 헤더 추가
+  if (webhook.authType && webhook.authValue) {
+    try {
       const authValue = decrypt(webhook.authValue);
       if (webhook.authType === 'BEARER') {
         requestHeaders['Authorization'] = `Bearer ${authValue}`;
       } else if (webhook.authType === 'BASIC') {
         requestHeaders['Authorization'] = `Basic ${authValue}`;
       }
+    } catch (e) {
+      console.error('인증 값 복호화 오류:', e);
     }
+  }
 
-    // 커스텀 헤더 추가
-    if (webhook.customHeaders) {
-      try {
-        const customHeaders = JSON.parse(webhook.customHeaders);
-        requestHeaders = { ...requestHeaders, ...customHeaders };
-      } catch (e) {
-        console.error('커스텀 헤더 파싱 오류:', e);
+  // 커스텀 헤더 추가
+  if (webhook.customHeaders) {
+    try {
+      const customHeaders = JSON.parse(webhook.customHeaders);
+      requestHeaders = { ...requestHeaders, ...customHeaders };
+    } catch (e) {
+      console.error('커스텀 헤더 파싱 오류:', e);
+    }
+  }
+
+  // 재시도 로직
+  const maxRetries = webhook.retryEnabled ? webhook.maxRetries || 3 : 0;
+  let attempt = 0;
+
+  while (attempt <= maxRetries) {
+    try {
+      if (attempt > 0) {
+        console.log(`🔄 웹훅 재시도 (${attempt}/${maxRetries}): ${webhook.name}`);
+        // 재시도 전 대기
+        await new Promise(resolve => setTimeout(resolve, (webhook.retryDelay || 5) * 1000));
+      }
+
+      // HTTP 요청 실행
+      const response = await fetch(webhook.url, {
+        method: 'POST',
+        headers: requestHeaders,
+        body: requestBody,
+      });
+
+      responseStatus = response.status;
+      responseBody = await response.text();
+
+      if (response.ok) {
+        status = 'SUCCESS';
+        errorMessage = null;
+        console.log(`✅ 웹훅 전송 성공: ${webhook.name}${attempt > 0 ? ` (재시도 ${attempt}회 후 성공)` : ''}`);
+        break; // 성공 시 루프 탈출
+      } else {
+        status = 'FAILED';
+        errorMessage = `HTTP ${response.status}: ${responseBody}`;
+        
+        if (attempt >= maxRetries) {
+          console.error(`❌ 웹훅 전송 최종 실패: ${webhook.name} (${maxRetries}회 재시도 후)`);
+        } else if (webhook.retryEnabled) {
+          // 재시도 가능한 경우 다음 시도
+          attempt++;
+          continue;
+        } else {
+          // 재시도 비활성화
+          break;
+        }
+      }
+    } catch (error: any) {
+      status = 'FAILED';
+      errorMessage = error.message;
+      
+      if (attempt >= maxRetries) {
+        console.error(`❌ 웹훅 전송 최종 실패: ${webhook.name}`, error);
+      } else if (webhook.retryEnabled) {
+        // 재시도 가능한 경우 다음 시도
+        attempt++;
+        continue;
+      } else {
+        // 재시도 비활성화
+        console.error(`❌ 웹훅 전송 실패: ${webhook.name}`, error);
+        break;
       }
     }
-
-    // HTTP 요청 실행
-    const response = await fetch(webhook.url, {
-      method: 'POST',
-      headers: requestHeaders,
-      body: requestBody,
-    });
-
-    responseStatus = response.status;
-    responseBody = await response.text();
-
-    if (!response.ok) {
-      status = 'FAILED';
-      errorMessage = `HTTP ${response.status}: ${responseBody}`;
-    }
-
-    console.log(`✅ 웹훅 전송 성공: ${webhook.name}`);
-  } catch (error: any) {
-    status = 'FAILED';
-    errorMessage = error.message;
-    console.error(`❌ 웹훅 전송 실패: ${webhook.name}`, error);
+    
+    attempt++;
   }
 
   const responseTime = Date.now() - startTime;
