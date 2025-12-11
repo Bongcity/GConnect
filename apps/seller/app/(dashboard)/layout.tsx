@@ -13,6 +13,7 @@ import {
   ClockIcon,
   SparklesIcon,
   ExclamationTriangleIcon,
+  ChatBubbleLeftRightIcon,
 } from '@heroicons/react/24/outline';
 
 interface SubscriptionData {
@@ -203,6 +204,13 @@ export default function DashboardLayout({
           >
             <ClockIcon className="w-5 h-5" />
             <span>동기화 로그</span>
+          </Link>
+          <Link
+            href="/dashboard/inquiries"
+            className="flex items-center gap-3 px-4 py-3 rounded-xl text-white/80 hover:text-white hover:bg-white/5 transition-all"
+          >
+            <ChatBubbleLeftRightIcon className="w-5 h-5" />
+            <span>문의 내역</span>
           </Link>
           <Link
             href="/dashboard/settings"
