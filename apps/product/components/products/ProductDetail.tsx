@@ -118,8 +118,73 @@ export default function ProductDetail({ product, relatedProducts = [] }: Product
     return '/products';
   };
 
+  // JSON-LD 구조화된 데이터 (Schema.org Product)
+  const productSchema = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    "name": product.productName,
+    "image": images,
+    "description": product.productName,
+    "sku": product.id,
+    "brand": product.storeName ? {
+      "@type": "Brand",
+      "name": product.storeName
+    } : undefined,
+    "category": product.sourceCategoryName || undefined,
+    "offers": {
+      "@type": "Offer",
+      "url": product.productUrl || `https://www.gconnect.kr/products/${product.id.startsWith('GLOBAL_') ? 'GLOBAL' : 'SELLER'}/${product.id.replace(/^(GLOBAL_|SELLER_)/, '')}`,
+      "priceCurrency": "KRW",
+      "price": finalPrice || 0,
+      "priceValidUntil": new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 30일 후
+      "availability": detail?.statusType === 'OUTOFSTOCK' 
+        ? "https://schema.org/OutOfStock" 
+        : "https://schema.org/InStock",
+      "seller": product.storeName ? {
+        "@type": "Organization",
+        "name": product.storeName
+      } : undefined
+    }
+  };
+
+  // BreadcrumbList Schema
+  const breadcrumbSchema = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      {
+        "@type": "ListItem",
+        "position": 1,
+        "name": "홈",
+        "item": "https://www.gconnect.kr"
+      },
+      ...parseCategoryHierarchy().map((category, index) => ({
+        "@type": "ListItem",
+        "position": index + 2,
+        "name": category,
+        "item": index === parseCategoryHierarchy().length - 1 
+          ? undefined 
+          : `https://www.gconnect.kr/products?category=${product.sourceCid}`
+      }))
+    ]
+  };
+
   return (
     <div className="min-h-screen bg-dark-bg text-white">
+      {/* JSON-LD 구조화된 데이터 */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(productSchema)
+        }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(breadcrumbSchema)
+        }}
+      />
+
       <div className="container-custom pt-4 pb-8">
         {/* 브레드크럼 */}
         <nav className="mb-6">
