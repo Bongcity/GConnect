@@ -383,31 +383,50 @@ export class NaverApiClient {
     
     const channelInfo = await this.getChannelInfo();
     
-    if (!channelInfo || !channelInfo.channels || channelInfo.channels.length === 0) {
+    // 응답이 배열 형태인지 확인
+    const channels = Array.isArray(channelInfo) ? channelInfo : channelInfo?.channels;
+    
+    if (!channels || channels.length === 0) {
       console.warn('⚠️ 채널 정보를 가져올 수 없습니다. UNKNOWN_STORE를 사용합니다.');
       this.cachedStoreId = 'UNKNOWN_STORE';
       return this.cachedStoreId;
     }
     
-    const firstChannel = channelInfo.channels[0];
+    const firstChannel = channels[0];
     
-    // 다양한 필드를 시도하여 스토어 ID 추출
+    // URL에서 스토어 ID 추출 (가장 정확한 방법)
+    // 예: https://smartstore.naver.com/kcmaker → kcmaker
+    if (firstChannel.url) {
+      const urlMatch = firstChannel.url.match(/smartstore\.naver\.com\/([^\/\?]+)/);
+      if (urlMatch && urlMatch[1]) {
+        this.cachedStoreId = urlMatch[1];
+        console.log('🏪 스토어 ID 추출 완료 (URL):', this.cachedStoreId);
+        console.log('🏪 채널 정보:', {
+          name: firstChannel.name,
+          url: firstChannel.url,
+          channelNo: firstChannel.channelNo
+        });
+        return this.cachedStoreId;
+      }
+    }
+    
+    // URL 추출 실패 시 다른 필드 시도
     this.cachedStoreId = firstChannel.channelId 
       || firstChannel.storeId
       || firstChannel.channelServiceId
       || firstChannel.serviceChannelId
       || firstChannel.smartStoreId
-      || firstChannel.channelName
+      || firstChannel.name
       || 'UNKNOWN_STORE';
     
-    console.log('🏪 스토어 ID 추출 완료:', this.cachedStoreId);
+    console.log('🏪 스토어 ID 추출 완료 (필드):', this.cachedStoreId);
     console.log('🏪 사용된 필드:', {
       channelId: firstChannel.channelId,
       storeId: firstChannel.storeId,
       channelServiceId: firstChannel.channelServiceId,
       serviceChannelId: firstChannel.serviceChannelId,
       smartStoreId: firstChannel.smartStoreId,
-      channelName: firstChannel.channelName,
+      name: firstChannel.name,
     });
     
     return this.cachedStoreId;

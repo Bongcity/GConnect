@@ -190,17 +190,35 @@ export async function POST(req: Request) {
                console.log('🏪 채널 정보:', JSON.stringify(channelInfo, null, 2));
                
                // 채널 정보에서 스토어 ID 추출
-               if (channelInfo && channelInfo.channels && channelInfo.channels.length > 0) {
-                 const firstChannel = channelInfo.channels[0];
-                 storeId = firstChannel.channelId 
-                   || firstChannel.storeId 
-                   || firstChannel.channelServiceId
-                   || firstChannel.serviceChannelId
-                   || firstChannel.smartStoreId
-                   || firstChannel.channelName
-                   || 'UNKNOWN_STORE';
+               if (channelInfo && Array.isArray(channelInfo) && channelInfo.length > 0) {
+                 const firstChannel = channelInfo[0];
+                 
+                 // URL에서 스토어 ID 추출: https://smartstore.naver.com/kcmaker → kcmaker
+                 if (firstChannel.url) {
+                   const urlMatch = firstChannel.url.match(/smartstore\.naver\.com\/([^\/\?]+)/);
+                   if (urlMatch && urlMatch[1]) {
+                     storeId = urlMatch[1];
+                   }
+                 }
+                 
+                 // URL 추출 실패 시 다른 필드 시도
+                 if (storeId === 'UNKNOWN_STORE') {
+                   storeId = firstChannel.channelId 
+                     || firstChannel.storeId 
+                     || firstChannel.channelServiceId
+                     || firstChannel.serviceChannelId
+                     || firstChannel.smartStoreId
+                     || firstChannel.name
+                     || 'UNKNOWN_STORE';
+                 }
+                 
                  console.log('✅ 스토어 ID 추출:', storeId);
-                 console.log('📋 채널 필드:', Object.keys(firstChannel));
+                 console.log('📋 채널 정보:', {
+                   name: firstChannel.name,
+                   url: firstChannel.url,
+                   channelNo: firstChannel.channelNo,
+                   channelType: firstChannel.channelType
+                 });
                }
              } else {
                console.warn('⚠️ 채널 정보 조회 실패:', channelResponse.status);
