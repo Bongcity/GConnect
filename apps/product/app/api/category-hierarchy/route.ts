@@ -91,9 +91,8 @@ export async function GET(req: NextRequest) {
         console.log(`[API /category-hierarchy] 고유 CID ${uniqueCids.length}개:`, uniqueCids.slice(0, 5));
 
         if (uniqueCids.length > 0) {
-          // Prisma의 올바른 방식으로 IN 쿼리 수정
-          // 주의: 모델명은 NaverCategory (단수형)
-          const categoryData = await ddroPrisma.naverCategory.findMany({
+          // NaverCategories에서 카테고리명 조회
+          const categoryData = await prisma.naverCategory.findMany({
             where: {
               cid: { in: uniqueCids },
               category_1: { not: null }
@@ -101,37 +100,50 @@ export async function GET(req: NextRequest) {
             select: {
               cid: true,
               category_1: true
-            },
-            distinct: ['cid', 'category_1']
-          });
-
-          console.log(`[API /category-hierarchy] NaverCategories에서 ${categoryData.length}개 카테고리명 조회됨`);
-
-          const category1Map = new Map<string, { cid: string; count: number }>();
-          categoryData.forEach(cat => {
-            if (cat.category_1) {
-              const count = cidCounts.get(cat.cid) || 0;
-              const existing = category1Map.get(cat.category_1);
-              if (!existing || count > existing.count) {
-                category1Map.set(cat.category_1, { cid: cat.cid, count });
-              } else {
-                category1Map.set(cat.category_1, {
-                  cid: existing.cid,
-                  count: existing.count + count
-                });
-              }
             }
           });
 
+          console.log(`[API /category-hierarchy] NaverCategories에서 ${categoryData.length}개 레코드 조회됨`);
+          console.log(`[API /category-hierarchy] 카테고리 데이터:`, categoryData.map(c => `${c.category_1} (${c.cid})`).join(', '));
+
+          // category_1별로 그룹핑하고 상품 수 합산
+          const category1Map = new Map<string, { totalCount: number; cids: Array<{ cid: string; count: number }> }>();
+          
+          categoryData.forEach(cat => {
+            if (cat.category_1 && cat.cid) {
+              const count = cidCounts.get(cat.cid) || 0;
+              
+              if (!category1Map.has(cat.category_1)) {
+                category1Map.set(cat.category_1, { totalCount: 0, cids: [] });
+              }
+              
+              const group = category1Map.get(cat.category_1)!;
+              group.totalCount += count;
+              group.cids.push({ cid: cat.cid, count });
+            }
+          });
+
+          console.log(`[API /category-hierarchy] 그룹핑 결과:`, 
+            Array.from(category1Map.entries()).map(([name, data]) => 
+              `${name}: ${data.totalCount}개 (${data.cids.length}개 CID)`
+            ).join(', ')
+          );
+
+          // 각 category_1의 대표 CID 선택 (가장 상품이 많은 CID)
           categories = Array.from(category1Map.entries())
-            .map(([name, data]) => ({
-              category_1: name,
-              cid: data.cid,
-              product_count: data.count
-            }))
+            .map(([name, data]) => {
+              const representativeCid = data.cids.sort((a, b) => b.count - a.count)[0].cid;
+              return {
+                category_1: name,
+                cid: representativeCid,
+                product_count: data.totalCount
+              };
+            })
             .sort((a, b) => b.product_count - a.product_count);
 
-          console.log(`[API /category-hierarchy] 최종 1단계 카테고리 ${categories.length}개`);
+          console.log(`[API /category-hierarchy] 최종 1단계 카테고리 ${categories.length}개:`,
+            categories.map(c => `${c.category_1} (${c.product_count}개)`).join(', ')
+          );
         }
       }
 
@@ -150,43 +162,102 @@ export async function GET(req: NextRequest) {
 
     // 2단계: 중분류 조회 (대표 cid 포함)
     if (category1 && !category2) {
-      // DDRo OFF시에는 2단계 이상은 지원하지 않음 (복잡도 때문)
-      if (!showDdroProducts) {
-        return NextResponse.json({
-          level: 2,
-          parent: category1,
-          categories: [],
-        });
-      }
+      let categories: Array<{
+        category_2: string | null;
+        cid: string;
+        product_count: number;
+      }> = [];
 
-      const categories = await ddroPrisma.$queryRaw<
-        Array<{
-          category_2: string | null;
-          cid: string;
-          product_count: number;
-        }>
-      >`
-        WITH RankedCategories AS (
+      if (showDdroProducts) {
+        // DDRo ON: DDRo DB 조회
+        console.log(`[API /category-hierarchy] DDRo ON - 2단계 조회: ${category1}`);
+        
+        categories = await ddroPrisma.$queryRaw`
+          WITH RankedCategories AS (
+            SELECT 
+              nc.category_2,
+              nc.cid,
+              COUNT(DISTINCT ap.id) as product_count,
+              ROW_NUMBER() OVER (PARTITION BY nc.category_2 ORDER BY COUNT(DISTINCT ap.id) DESC) as rn
+            FROM NaverCategories nc
+            LEFT JOIN affiliate_products ap ON nc.cid = ap.source_cid AND ap.enabled = 1
+            WHERE nc.category_1 = ${category1}
+              AND nc.category_2 IS NOT NULL
+            GROUP BY nc.category_2, nc.cid
+          )
           SELECT 
-            nc.category_2,
-            nc.cid,
-            COUNT(DISTINCT ap.id) as product_count,
-            ROW_NUMBER() OVER (PARTITION BY nc.category_2 ORDER BY COUNT(DISTINCT ap.id) DESC) as rn
-          FROM NaverCategories nc
-          LEFT JOIN affiliate_products ap ON nc.cid = ap.source_cid AND ap.enabled = 1
-          WHERE nc.category_1 = ${category1}
-            AND nc.category_2 IS NOT NULL
-          GROUP BY nc.category_2, nc.cid
-        )
-        SELECT 
-          category_2,
-          cid,
-          SUM(product_count) as product_count
-        FROM RankedCategories
-        WHERE rn = 1
-        GROUP BY category_2, cid
-        ORDER BY SUM(product_count) DESC
-      `;
+            category_2,
+            cid,
+            SUM(product_count) as product_count
+          FROM RankedCategories
+          WHERE rn = 1
+          GROUP BY category_2, cid
+          ORDER BY SUM(product_count) DESC
+        `;
+      } else {
+        // DDRo OFF: GCONNECT DB (Seller 상품)
+        console.log(`[API /category-hierarchy] DDRo OFF - 2단계 조회: ${category1}`);
+        
+        const sellerProducts = await prisma.product.findMany({
+          where: { enabled: true, source_cid: { not: null } },
+          select: { source_cid: true }
+        });
+
+        const cidCounts = new Map<string, number>();
+        sellerProducts.forEach(p => {
+          if (p.source_cid) {
+            cidCounts.set(p.source_cid, (cidCounts.get(p.source_cid) || 0) + 1);
+          }
+        });
+
+        const uniqueCids = Array.from(cidCounts.keys());
+        
+        if (uniqueCids.length > 0) {
+          const categoryData = await prisma.naverCategory.findMany({
+            where: {
+              cid: { in: uniqueCids },
+              category_1: category1,
+              category_2: { not: null }
+            },
+            select: {
+              cid: true,
+              category_2: true
+            }
+          });
+
+          // category_2별로 그룹핑
+          const category2Map = new Map<string, { totalCount: number; cids: Array<{ cid: string; count: number }> }>();
+          
+          categoryData.forEach(cat => {
+            if (cat.category_2 && cat.cid) {
+              const count = cidCounts.get(cat.cid) || 0;
+              
+              if (!category2Map.has(cat.category_2)) {
+                category2Map.set(cat.category_2, { totalCount: 0, cids: [] });
+              }
+              
+              const group = category2Map.get(cat.category_2)!;
+              group.totalCount += count;
+              group.cids.push({ cid: cat.cid, count });
+            }
+          });
+
+          categories = Array.from(category2Map.entries())
+            .map(([name, data]) => {
+              const representativeCid = data.cids.sort((a, b) => b.count - a.count)[0].cid;
+              return {
+                category_2: name,
+                cid: representativeCid,
+                product_count: data.totalCount
+              };
+            })
+            .sort((a, b) => b.product_count - a.product_count);
+
+          console.log(`[API /category-hierarchy] 2단계 카테고리 ${categories.length}개:`,
+            categories.map(c => `${c.category_2} (${c.product_count}개)`).join(', ')
+          );
+        }
+      }
 
       return NextResponse.json({
         level: 2,
@@ -203,34 +274,94 @@ export async function GET(req: NextRequest) {
 
     // 3단계: 소분류 조회
     if (category1 && category2) {
-      // DDRo OFF시에는 3단계는 지원하지 않음
-      if (!showDdroProducts) {
-        return NextResponse.json({
-          level: 3,
-          parent: { category1, category2 },
-          categories: [],
-        });
-      }
+      let categories: Array<{
+        category_3: string | null;
+        cid: string;
+        product_count: number;
+      }> = [];
 
-      const categories = await ddroPrisma.$queryRaw<
-        Array<{
-          category_3: string | null;
-          cid: string;
-          product_count: number;
-        }>
-      >`
-        SELECT DISTINCT
-          nc.category_3,
-          nc.cid,
-          COUNT(DISTINCT ap.id) as product_count
-        FROM NaverCategories nc
-        LEFT JOIN affiliate_products ap ON nc.cid = ap.source_cid AND ap.enabled = 1
-        WHERE nc.category_1 = ${category1}
-          AND nc.category_2 = ${category2}
-          AND nc.category_3 IS NOT NULL
-        GROUP BY nc.category_3, nc.cid
-        ORDER BY COUNT(DISTINCT ap.id) DESC
-      `;
+      if (showDdroProducts) {
+        // DDRo ON: DDRo DB 조회
+        console.log(`[API /category-hierarchy] DDRo ON - 3단계 조회: ${category1} > ${category2}`);
+        
+        categories = await ddroPrisma.$queryRaw`
+          SELECT DISTINCT
+            nc.category_3,
+            nc.cid,
+            COUNT(DISTINCT ap.id) as product_count
+          FROM NaverCategories nc
+          LEFT JOIN affiliate_products ap ON nc.cid = ap.source_cid AND ap.enabled = 1
+          WHERE nc.category_1 = ${category1}
+            AND nc.category_2 = ${category2}
+            AND nc.category_3 IS NOT NULL
+          GROUP BY nc.category_3, nc.cid
+          ORDER BY COUNT(DISTINCT ap.id) DESC
+        `;
+      } else {
+        // DDRo OFF: GCONNECT DB (Seller 상품)
+        console.log(`[API /category-hierarchy] DDRo OFF - 3단계 조회: ${category1} > ${category2}`);
+        
+        const sellerProducts = await prisma.product.findMany({
+          where: { enabled: true, source_cid: { not: null } },
+          select: { source_cid: true }
+        });
+
+        const cidCounts = new Map<string, number>();
+        sellerProducts.forEach(p => {
+          if (p.source_cid) {
+            cidCounts.set(p.source_cid, (cidCounts.get(p.source_cid) || 0) + 1);
+          }
+        });
+
+        const uniqueCids = Array.from(cidCounts.keys());
+        
+        if (uniqueCids.length > 0) {
+          const categoryData = await prisma.naverCategory.findMany({
+            where: {
+              cid: { in: uniqueCids },
+              category_1: category1,
+              category_2: category2,
+              category_3: { not: null }
+            },
+            select: {
+              cid: true,
+              category_3: true
+            }
+          });
+
+          // category_3별로 그룹핑
+          const category3Map = new Map<string, { totalCount: number; cids: Array<{ cid: string; count: number }> }>();
+          
+          categoryData.forEach(cat => {
+            if (cat.category_3 && cat.cid) {
+              const count = cidCounts.get(cat.cid) || 0;
+              
+              if (!category3Map.has(cat.category_3)) {
+                category3Map.set(cat.category_3, { totalCount: 0, cids: [] });
+              }
+              
+              const group = category3Map.get(cat.category_3)!;
+              group.totalCount += count;
+              group.cids.push({ cid: cat.cid, count });
+            }
+          });
+
+          categories = Array.from(category3Map.entries())
+            .map(([name, data]) => {
+              const representativeCid = data.cids.sort((a, b) => b.count - a.count)[0].cid;
+              return {
+                category_3: name,
+                cid: representativeCid,
+                product_count: data.totalCount
+              };
+            })
+            .sort((a, b) => b.product_count - a.product_count);
+
+          console.log(`[API /category-hierarchy] 3단계 카테고리 ${categories.length}개:`,
+            categories.map(c => `${c.category_3} (${c.product_count}개)`).join(', ')
+          );
+        }
+      }
 
       return NextResponse.json({
         level: 3,
