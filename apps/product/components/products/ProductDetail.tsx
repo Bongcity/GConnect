@@ -101,6 +101,15 @@ export default function ProductDetail({ product, relatedProducts = [] }: Product
     setSelectedImageIndex((prev) => (prev === images.length - 1 ? 0 : prev + 1));
   };
 
+  // 카테고리 계층 구조 파싱
+  const parseCategoryHierarchy = () => {
+    if (!product.sourceCategoryName) return [];
+    
+    // "가구/인테리어 > DIY자재/용품 > 리모델링" 형식을 파싱
+    const categories = product.sourceCategoryName.split('>').map(cat => cat.trim());
+    return categories;
+  };
+
   // 카테고리 링크 생성
   const getCategoryLink = () => {
     if (product.sourceCid) {
@@ -114,14 +123,32 @@ export default function ProductDetail({ product, relatedProducts = [] }: Product
       <div className="container-custom pt-4 pb-8">
         {/* 브레드크럼 */}
         <nav className="mb-6">
-          <ol className="flex items-center gap-2 text-sm text-white/60">
+          <ol className="flex items-center flex-wrap gap-2 text-sm text-white/60">
             <li><Link href="/" className="hover:text-brand-neon transition-colors">홈</Link></li>
-            <li>/</li>
-            <li><Link href="/products" className="hover:text-brand-neon transition-colors">전체 상품</Link></li>
-            {product.sourceCategoryName && (
+            {parseCategoryHierarchy().length > 0 ? (
               <>
-                <li>/</li>
-                <li className="text-white/80">{product.sourceCategoryName}</li>
+                {parseCategoryHierarchy().map((category, index) => (
+                  <li key={index} className="flex items-center gap-2">
+                    <span className="text-white/40">&gt;</span>
+                    {index === parseCategoryHierarchy().length - 1 ? (
+                      // 마지막 카테고리는 현재 페이지이므로 링크 없음
+                      <span className="text-white/80">{category}</span>
+                    ) : (
+                      // 이전 카테고리들은 클릭 가능
+                      <Link 
+                        href={getCategoryLink()} 
+                        className="hover:text-brand-neon transition-colors"
+                      >
+                        {category}
+                      </Link>
+                    )}
+                  </li>
+                ))}
+              </>
+            ) : (
+              <>
+                <span className="text-white/40">&gt;</span>
+                <li><Link href="/products" className="hover:text-brand-neon transition-colors">전체 상품</Link></li>
               </>
             )}
           </ol>
@@ -131,18 +158,6 @@ export default function ProductDetail({ product, relatedProducts = [] }: Product
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 mb-16">
           {/* 왼쪽: 이미지 갤러리 */}
           <div className="space-y-4">
-            {/* 카테고리 (이미지 위) */}
-            {product.sourceCategoryName && (
-              <div className="mb-4">
-                <Link 
-                  href={getCategoryLink()}
-                  className="inline-flex items-center gap-2 text-sm text-white/60 hover:text-brand-neon transition-colors group"
-                >
-                  <span>카테고리: {product.sourceCategoryName}</span>
-                  <ChevronRightSmall className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                </Link>
-              </div>
-            )}
 
             {/* 메인 이미지 */}
             <div className="relative aspect-square bg-dark-card rounded-2xl overflow-hidden group">
