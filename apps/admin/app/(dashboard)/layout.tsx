@@ -161,15 +161,15 @@ export default function DashboardLayout({
           </Link>
 
           <Link
-            href="/dashboard/feed-settings"
+            href="/dashboard/gsc-stats"
             className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
-              isActive('/dashboard/feed-settings')
+              isActive('/dashboard/gsc-stats')
                 ? 'bg-red-500/20 text-red-400 border border-red-500/30'
                 : 'text-white/80 hover:text-white hover:bg-white/5'
             }`}
           >
-            <RssIcon className="w-5 h-5" />
-            <span>Google 피드</span>
+            <ChartBarIcon className="w-5 h-5" />
+            <span>GSC 통계</span>
           </Link>
 
           <Link
