@@ -553,16 +553,17 @@ export async function registerGSCSync() {
     console.log('[GSC Sync] ⏰ 크론 작업 시작');
     
     try {
-      // 최근 7일 데이터 동기화
+      // 최근 7일 데이터 동기화 (재시도 포함)
       const endDate = new Date();
       const startDate = new Date();
       startDate.setDate(startDate.getDate() - 7);
       
-      await gscClient.syncProductStats({ start: startDate, end: endDate });
+      await gscClient.syncProductStatsWithRetry({ start: startDate, end: endDate });
       
       console.log('[GSC Sync] ✅ 크론 작업 완료');
     } catch (error) {
-      console.error('[GSC Sync] ❌ 크론 작업 실패:', error);
+      console.error('[GSC Sync] ❌ 크론 작업 최종 실패:', error);
+      // TODO: 알림 전송 (이메일, Slack 등)
     }
   });
   
@@ -575,10 +576,10 @@ export async function registerGSCSync() {
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - 7);
     
-    await gscClient.syncProductStats({ start: startDate, end: endDate });
+    await gscClient.syncProductStatsWithRetry({ start: startDate, end: endDate });
     console.log('[GSC Sync] ✅ 초기 동기화 완료');
   } catch (error) {
-    console.error('[GSC Sync] ❌ 초기 동기화 실패:', error);
+    console.error('[GSC Sync] ❌ 초기 동기화 최종 실패:', error);
   }
 }
 

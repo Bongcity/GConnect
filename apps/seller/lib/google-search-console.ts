@@ -9,6 +9,7 @@ import { prisma } from '@gconnect/db';
 
 interface GSCMetrics {
   url: string;
+  date?: string; // YYYY-MM-DD 형식
   impressions: number;
   clicks: number;
   ctr: number;
@@ -26,13 +27,30 @@ export class GoogleSearchConsoleClient {
   private enabled = false;
 
   constructor() {
-    try {
-      const serviceAccountEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
-      const privateKey = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n');
+    const serviceAccountEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
+    const privateKey = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n');
 
-      if (!serviceAccountEmail || !privateKey) {
-        console.warn('[GSC] ⚠️ Google 서비스 계정 정보 없음 - GSC 기능 비활성화');
-        return;
+    // 환경 변수 누락 체크
+    if (!serviceAccountEmail || !privateKey) {
+      console.error('[GSC] ❌ Google 서비스 계정 정보 누락:');
+      console.error(`  - GOOGLE_SERVICE_ACCOUNT_EMAIL: ${serviceAccountEmail ? '✓ 설정됨' : '✗ 누락'}`);
+      console.error(`  - GOOGLE_PRIVATE_KEY: ${privateKey ? '✓ 설정됨' : '✗ 누락'}`);
+      console.error('[GSC] GSC 기능이 비활성화됩니다.');
+      console.error('[GSC] .env.local 파일에 다음 변수를 추가하세요:');
+      console.error('  GOOGLE_SERVICE_ACCOUNT_EMAIL=your-service-account@project.iam.gserviceaccount.com');
+      console.error('  GOOGLE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\\n...\\n-----END PRIVATE KEY-----\\n"');
+      return; // enabled = false
+    }
+
+    try {
+      // 서비스 계정 이메일 형식 검증
+      if (!serviceAccountEmail.includes('@') || !serviceAccountEmail.includes('.iam.gserviceaccount.com')) {
+        throw new Error('잘못된 서비스 계정 이메일 형식입니다. @project.iam.gserviceaccount.com 형식이어야 합니다.');
+      }
+
+      // Private key 형식 검증
+      if (!privateKey.includes('BEGIN PRIVATE KEY') || !privateKey.includes('END PRIVATE KEY')) {
+        throw new Error('잘못된 Private Key 형식입니다. PEM 형식이어야 합니다.');
       }
 
       const auth = new google.auth.GoogleAuth({
@@ -46,8 +64,14 @@ export class GoogleSearchConsoleClient {
       this.searchConsole = google.searchconsole({ version: 'v1', auth });
       this.enabled = true;
       console.log('[GSC] ✅ Google Search Console 클라이언트 초기화 완료');
+      console.log(`[GSC]    서비스 계정: ${serviceAccountEmail}`);
+      console.log(`[GSC]    사이트 URL: ${this.siteUrl}`);
     } catch (error: any) {
       console.error('[GSC] ❌ 초기화 실패:', error.message);
+      console.error('[GSC] 환경 변수를 확인하세요:');
+      console.error('  - GOOGLE_SERVICE_ACCOUNT_EMAIL: 형식이 올바른지 확인');
+      console.error('  - GOOGLE_PRIVATE_KEY: PEM 형식이 올바른지 확인');
+      console.error('[GSC] GSC 기능이 비활성화됩니다.');
     }
   }
 
@@ -59,13 +83,14 @@ export class GoogleSearchConsoleClient {
   }
 
   /**
-   * 특정 URL 목록의 검색 지표를 조회
+   * 특정 URL 목록의 검색 지표를 조회 (날짜별)
+   * 반환: Map<url, Map<date, metrics>>
    */
   async getUrlMetrics(
     productUrls: string[],
     startDate: string, // YYYY-MM-DD
     endDate: string    // YYYY-MM-DD
-  ): Promise<Map<string, GSCMetrics>> {
+  ): Promise<Map<string, Map<string, GSCMetrics>>> {
     if (!this.enabled) {
       console.warn('[GSC] API가 비활성화되어 있습니다');
       return new Map();
@@ -79,7 +104,7 @@ export class GoogleSearchConsoleClient {
         requestBody: {
           startDate,
           endDate,
-          dimensions: ['page'],
+          dimensions: ['page', 'date'], // 날짜 차원 추가
           dimensionFilterGroups: productUrls.length > 0 ? [{
             filters: productUrls.map(url => ({
               dimension: 'page',
@@ -91,13 +116,20 @@ export class GoogleSearchConsoleClient {
         },
       });
 
-      const metricsMap = new Map<string, GSCMetrics>();
+      const metricsMap = new Map<string, Map<string, GSCMetrics>>();
 
       if (response.data.rows) {
         for (const row of response.data.rows) {
           const url = row.keys?.[0] || '';
-          metricsMap.set(url, {
+          const date = row.keys?.[1] || '';
+          
+          if (!metricsMap.has(url)) {
+            metricsMap.set(url, new Map());
+          }
+          
+          metricsMap.get(url)!.set(date, {
             url,
+            date,
             impressions: row.impressions || 0,
             clicks: row.clicks || 0,
             ctr: row.ctr || 0,
@@ -106,7 +138,11 @@ export class GoogleSearchConsoleClient {
         }
       }
 
-      console.log(`[GSC] ✅ ${metricsMap.size}개 URL 지표 조회 완료`);
+      const totalDataPoints = Array.from(metricsMap.values()).reduce(
+        (sum, dateMap) => sum + dateMap.size, 
+        0
+      );
+      console.log(`[GSC] ✅ ${metricsMap.size}개 URL, ${totalDataPoints}개 데이터 포인트 조회 완료`);
       return metricsMap;
     } catch (error: any) {
       console.error('[GSC] ❌ 지표 조회 실패:', error.message);
@@ -118,7 +154,7 @@ export class GoogleSearchConsoleClient {
   }
 
   /**
-   * 모든 활성 상품의 검색 통계를 동기화
+   * 모든 활성 상품의 검색 통계를 동기화 (최적화 버전)
    */
   async syncProductStats(dateRange: DateRange): Promise<void> {
     if (!this.enabled) {
@@ -153,63 +189,106 @@ export class GoogleSearchConsoleClient {
         return `${baseUrl}/products/SELLER/${p.id}/${encodeURIComponent(slug)}`;
       });
 
-      // 3. 날짜별로 GSC 데이터 조회 및 저장
-      const currentDate = new Date(dateRange.start);
-      const endDate = new Date(dateRange.end);
-      let totalSaved = 0;
+      // 3. 단일 API 호출로 전체 기간 데이터 가져오기
+      const startDateStr = this.formatDate(dateRange.start);
+      const endDateStr = this.formatDate(dateRange.end);
+      
+      console.log(`[GSC Sync] GSC API 호출: ${startDateStr} ~ ${endDateStr}`);
+      const metrics = await this.getUrlMetrics(
+        productUrls,
+        startDateStr,
+        endDateStr
+      );
 
-      while (currentDate <= endDate) {
-        const dateStr = this.formatDate(currentDate);
-        console.log(`[GSC Sync] ${dateStr} 데이터 처리 중...`);
+      // 4. 배치 데이터 수집
+      const batchUpserts: Array<{
+        productId: bigint;
+        productUrl: string;
+        date: Date;
+        impressions: number;
+        clicks: number;
+      }> = [];
 
-        // GSC API 호출 (하루 단위)
-        const metrics = await this.getUrlMetrics(
-          productUrls,
-          dateStr,
-          dateStr
-        );
+      for (const product of products) {
+        const slug = this.createSlug(product.product_name || '');
+        const productUrl = `${baseUrl}/products/SELLER/${product.id}/${encodeURIComponent(slug)}`;
+        const urlMetrics = metrics.get(productUrl);
+        
+        if (urlMetrics) {
+          for (const [dateStr, metric] of urlMetrics.entries()) {
+            const date = new Date(dateStr);
+            
+            if (metric.impressions > 0 || metric.clicks > 0) {
+              batchUpserts.push({
+                productId: product.id,
+                productUrl,
+                date,
+                impressions: metric.impressions,
+                clicks: metric.clicks,
+              });
+            }
+          }
+        }
+      }
 
-        // DB에 저장
-        for (const product of products) {
-          const slug = this.createSlug(product.product_name || '');
-          const productUrl = `${baseUrl}/products/SELLER/${product.id}/${encodeURIComponent(slug)}`;
-          const metric = metrics.get(productUrl);
-
-          if (metric && (metric.impressions > 0 || metric.clicks > 0)) {
-            await prisma.googleSearchStat.upsert({
+      // 5. 배치 처리: 트랜잭션으로 한 번에 저장
+      if (batchUpserts.length > 0) {
+        console.log(`[GSC Sync] ${batchUpserts.length}개 레코드 배치 저장 중...`);
+        
+        await prisma.$transaction(
+          batchUpserts.map(data =>
+            prisma.googleSearchStat.upsert({
               where: {
                 productId_date: {
-                  productId: product.id,
-                  date: currentDate,
+                  productId: data.productId,
+                  date: data.date,
                 },
               },
               update: {
-                impressions: metric.impressions,
-                clicks: metric.clicks,
-                productUrl,
+                impressions: data.impressions,
+                clicks: data.clicks,
+                productUrl: data.productUrl,
                 updatedAt: new Date(),
               },
-              create: {
-                productId: product.id,
-                productUrl,
-                date: currentDate,
-                impressions: metric.impressions,
-                clicks: metric.clicks,
-              },
-            });
-            totalSaved++;
-          }
-        }
-
-        // 다음 날짜로 이동
-        currentDate.setDate(currentDate.getDate() + 1);
+              create: data,
+            })
+          )
+        );
+        
+        const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+        console.log(`[GSC Sync] ✅ 완료: ${batchUpserts.length}개 레코드 저장 (${duration}초 소요, 1회 API 호출)`);
+      } else {
+        console.log(`[GSC Sync] ✅ 완료: 저장할 데이터 없음`);
       }
-
-      const duration = ((Date.now() - startTime) / 1000).toFixed(2);
-      console.log(`[GSC Sync] ✅ 완료: ${totalSaved}개 레코드 저장 (${duration}초 소요)`);
     } catch (error: any) {
       console.error('[GSC Sync] ❌ 동기화 실패:', error.message);
       throw error;
+    }
+  }
+
+  /**
+   * 재시도 로직이 포함된 동기화 (exponential backoff)
+   */
+  async syncProductStatsWithRetry(
+    dateRange: DateRange,
+    maxRetries = 3
+  ): Promise<void> {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        await this.syncProductStats(dateRange);
+        return; // 성공 시 종료
+      } catch (error: any) {
+        console.error(`[GSC Sync] ❌ 시도 ${attempt}/${maxRetries} 실패:`, error.message);
+        
+        if (attempt < maxRetries) {
+          const delaySeconds = Math.pow(2, attempt); // Exponential backoff: 2^1=2초, 2^2=4초
+          console.log(`[GSC Sync] ⏳ ${delaySeconds}초 후 재시도...`);
+          await new Promise(resolve => setTimeout(resolve, delaySeconds * 1000));
+        } else {
+          console.error('[GSC Sync] ❌ 최대 재시도 횟수 초과');
+          throw error;
+        }
+      }
     }
   }
 
