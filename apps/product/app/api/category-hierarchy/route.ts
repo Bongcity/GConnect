@@ -92,7 +92,8 @@ export async function GET(req: NextRequest) {
 
         if (uniqueCids.length > 0) {
           // Prisma의 올바른 방식으로 IN 쿼리 수정
-          const categoryData = await ddroPrisma.naverCategories.findMany({
+          // 주의: 모델명은 NaverCategory (단수형)
+          const categoryData = await ddroPrisma.naverCategory.findMany({
             where: {
               cid: { in: uniqueCids },
               category_1: { not: null }
