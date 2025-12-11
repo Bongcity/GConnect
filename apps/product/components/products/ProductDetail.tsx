@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { ShoppingBagIcon, HeartIcon, ShareIcon, ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
+import Link from 'next/link';
+import { ShoppingBagIcon, HeartIcon, ShareIcon, ChevronLeftIcon, ChevronRightIcon, ChevronRightIcon as ChevronRightSmall } from '@heroicons/react/24/outline';
 import { HeartIcon as HeartIconSolid } from '@heroicons/react/24/solid';
 import ProductCard from './ProductCard';
 import type { UnifiedProduct } from '@/types/product';
@@ -17,11 +18,10 @@ export default function ProductDetail({ product, relatedProducts = [] }: Product
   const [showFullDescription, setShowFullDescription] = useState(false);
   const [isDescriptionLoaded, setIsDescriptionLoaded] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [activeDeliveryTab, setActiveDeliveryTab] = useState('delivery'); // delivery, exchange, return, refund
   const iframeRef = useRef<HTMLIFrameElement>(null);
   
   // 상품 타입 구분: SELLER (네이버 API 연동) vs GLOBAL (DDRo)
-  // SELLER: detail 정보 있음 (affiliate_products_detail 활용)
-  // GLOBAL: detail 정보 없음 (affiliate_products만 사용)
   const detail = product.detail;
 
   // 클라이언트 마운트 확인
@@ -101,19 +101,27 @@ export default function ProductDetail({ product, relatedProducts = [] }: Product
     setSelectedImageIndex((prev) => (prev === images.length - 1 ? 0 : prev + 1));
   };
 
+  // 카테고리 링크 생성
+  const getCategoryLink = () => {
+    if (product.sourceCid) {
+      return `/category/${product.sourceCid}`;
+    }
+    return '/products';
+  };
+
   return (
     <div className="min-h-screen bg-dark-bg text-white">
       <div className="container-custom pt-4 pb-8">
         {/* 브레드크럼 */}
         <nav className="mb-6">
           <ol className="flex items-center gap-2 text-sm text-white/60">
-            <li><a href="/" className="hover:text-brand-neon transition-colors">홈</a></li>
+            <li><Link href="/" className="hover:text-brand-neon transition-colors">홈</Link></li>
             <li>/</li>
-            <li><a href="/products" className="hover:text-brand-neon transition-colors">전체 상품</a></li>
-            {product.sourceKeyword && (
+            <li><Link href="/products" className="hover:text-brand-neon transition-colors">전체 상품</Link></li>
+            {product.sourceCategoryName && (
               <>
                 <li>/</li>
-                <li className="text-white/80">{product.sourceKeyword}</li>
+                <li className="text-white/80">{product.sourceCategoryName}</li>
               </>
             )}
           </ol>
@@ -123,6 +131,19 @@ export default function ProductDetail({ product, relatedProducts = [] }: Product
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 mb-16">
           {/* 왼쪽: 이미지 갤러리 */}
           <div className="space-y-4">
+            {/* 카테고리 (이미지 위) */}
+            {product.sourceCategoryName && (
+              <div className="mb-4">
+                <Link 
+                  href={getCategoryLink()}
+                  className="inline-flex items-center gap-2 text-sm text-white/60 hover:text-brand-neon transition-colors group"
+                >
+                  <span>카테고리: {product.sourceCategoryName}</span>
+                  <ChevronRightSmall className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                </Link>
+              </div>
+            )}
+
             {/* 메인 이미지 */}
             <div className="relative aspect-square bg-dark-card rounded-2xl overflow-hidden group">
               <img
@@ -214,16 +235,12 @@ export default function ProductDetail({ product, relatedProducts = [] }: Product
                   <div className="text-right">
                     <div className="text-2xl font-bold text-brand-neon">
                       {(() => {
-                        // SELLER: detail.sellerPurchasePoint 사용, GLOBAL: 기본 계산식
                         const basePoint = detail?.sellerPurchasePoint || Math.floor(finalPrice * 0.001);
                         const nMembershipPoint = Math.floor(finalPrice * 0.005);
                         const nPayPoint = Math.floor(finalPrice * 0.004);
                         return (basePoint + nMembershipPoint + nPayPoint).toLocaleString();
                       })()}원
                     </div>
-                    <button className="text-xs text-white/60 hover:text-white/80 mt-1">
-                      ⓘ
-                    </button>
                   </div>
                 </div>
                 
@@ -232,7 +249,6 @@ export default function ProductDetail({ product, relatedProducts = [] }: Product
                     <span className="text-white/60">기본적립</span>
                     <span className="text-white/90">
                       {(() => {
-                        // SELLER: detail 포인트, GLOBAL: 기본 계산
                         const basePoint = detail?.sellerPurchasePoint || Math.floor(finalPrice * 0.001);
                         return basePoint.toLocaleString();
                       })()}원
@@ -276,23 +292,6 @@ export default function ProductDetail({ product, relatedProducts = [] }: Product
                   </div>
                 )}
                 
-                {/* 카테고리 */}
-                <div className="flex items-start gap-4">
-                  <span className="text-white/60 min-w-[80px]">카테고리</span>
-                  <div className="flex flex-col gap-1">
-                    <span className="text-white/90">
-                      {/* SELLER & GLOBAL 모두 NaverCategories 통일 */}
-                      {product.sourceCategoryName || product.sourceCid || '-'}
-                    </span>
-                    {/* SELLER의 상세 카테고리 정보가 있으면 추가 표시 */}
-                    {detail?.wholeCategoryName && detail.wholeCategoryName !== product.sourceCategoryName && (
-                      <span className="text-xs text-white/40">
-                        상세: {detail.wholeCategoryName}
-                      </span>
-                    )}
-                  </div>
-                </div>
-                
                 {/* 브랜드 (SELLER 전용) */}
                 {detail?.brandName && (
                   <div className="flex items-start gap-4">
@@ -332,24 +331,20 @@ export default function ProductDetail({ product, relatedProducts = [] }: Product
                     </span>
                   </div>
                 )}
-                
-                {/* 키워드 */}
-                {product.sourceKeyword && (
-                  <div className="flex items-start gap-4">
-                    <span className="text-white/60 min-w-[80px]">키워드</span>
-                    <span className="text-brand-neon font-medium">
-                      {product.sourceKeyword}
-                    </span>
+
+                {/* 무이자할부 혜택 */}
+                {detail?.freeInterest && detail.freeInterest > 0 && (
+                  <div className="flex items-start gap-4 pt-2 border-t border-white/10">
+                    <span className="font-medium text-brand-neon min-w-[80px]">혜택</span>
+                    <span className="text-brand-neon">{detail.freeInterest}개월 무이자할부</span>
                   </div>
                 )}
                 
-                {/* 랭크 */}
-                {product.sourceRank && (
+                {/* 사은품 */}
+                {detail?.gift && (
                   <div className="flex items-start gap-4">
-                    <span className="text-white/60 min-w-[80px]">랭크</span>
-                    <span className="text-white/90">
-                      #{product.sourceRank}
-                    </span>
+                    <span className="font-medium text-white/90 min-w-[80px]">사은품</span>
+                    <span className="text-white/90">{detail.gift}</span>
                   </div>
                 )}
               </div>
@@ -387,84 +382,150 @@ export default function ProductDetail({ product, relatedProducts = [] }: Product
           </div>
         </div>
 
-        {/* 배송/교환/반품 안내 */}
+        {/* 배송/교환/반품 안내 (탭 형식) */}
         <div className="glass-card p-8 mb-16">
-          <h2 className="text-2xl font-bold mb-4">배송/교환/반품 안내</h2>
-          <div className="space-y-4 text-white/70 text-sm">
-            {/* SELLER 상품: 상세 정보 표시 */}
-            {detail ? (
-              <>
-                <div className="flex items-start gap-3">
-                  <span className="font-medium text-white/90 min-w-[60px]">배송:</span>
-                  <div>
+          <h2 className="text-2xl font-bold mb-6">배송/교환/반품 안내</h2>
+          
+          {/* 탭 메뉴 */}
+          <div className="flex gap-2 mb-6 border-b border-white/10">
+            <button
+              onClick={() => setActiveDeliveryTab('delivery')}
+              className={`px-6 py-3 font-medium transition-colors border-b-2 ${
+                activeDeliveryTab === 'delivery'
+                  ? 'border-brand-neon text-brand-neon'
+                  : 'border-transparent text-white/60 hover:text-white/80'
+              }`}
+            >
+              배송
+            </button>
+            <button
+              onClick={() => setActiveDeliveryTab('exchange')}
+              className={`px-6 py-3 font-medium transition-colors border-b-2 ${
+                activeDeliveryTab === 'exchange'
+                  ? 'border-brand-neon text-brand-neon'
+                  : 'border-transparent text-white/60 hover:text-white/80'
+              }`}
+            >
+              교환
+            </button>
+            <button
+              onClick={() => setActiveDeliveryTab('return')}
+              className={`px-6 py-3 font-medium transition-colors border-b-2 ${
+                activeDeliveryTab === 'return'
+                  ? 'border-brand-neon text-brand-neon'
+                  : 'border-transparent text-white/60 hover:text-white/80'
+              }`}
+            >
+              반품
+            </button>
+            <button
+              onClick={() => setActiveDeliveryTab('refund')}
+              className={`px-6 py-3 font-medium transition-colors border-b-2 ${
+                activeDeliveryTab === 'refund'
+                  ? 'border-brand-neon text-brand-neon'
+                  : 'border-transparent text-white/60 hover:text-white/80'
+              }`}
+            >
+              환불
+            </button>
+          </div>
+
+          {/* 탭 컨텐츠 */}
+          <div className="text-white/70 text-sm space-y-3">
+            {activeDeliveryTab === 'delivery' && (
+              <div className="space-y-3">
+                {detail ? (
+                  <>
                     {detail.deliveryAttributeType === 'TODAY' && (
-                      <span className="inline-block bg-brand-neon text-dark-bg text-xs px-2 py-0.5 rounded font-bold mr-2">
-                        오늘출발
-                      </span>
+                      <div className="flex items-center gap-2 mb-3">
+                        <span className="inline-block bg-brand-neon text-dark-bg text-xs px-3 py-1 rounded font-bold">
+                          오늘출발
+                        </span>
+                      </div>
                     )}
-                    {detail.deliveryFee !== undefined && detail.deliveryFee !== null ? (
-                      detail.deliveryFee === 0 ? (
-                        <span className="text-brand-neon font-medium">무료배송</span>
+                    <p>
+                      <strong className="text-white/90">배송비:</strong>{' '}
+                      {detail.deliveryFee !== undefined && detail.deliveryFee !== null ? (
+                        detail.deliveryFee === 0 ? (
+                          <span className="text-brand-neon font-medium">무료배송</span>
+                        ) : (
+                          <span>{detail.deliveryFee.toLocaleString()}원</span>
+                        )
                       ) : (
-                        <span>배송비 {detail.deliveryFee.toLocaleString()}원</span>
-                      )
-                    ) : (
-                      <span>네이버 스마트스토어 정책에 따릅니다. (일반적으로 2-3일 소요)</span>
-                    )}
-                  </div>
-                </div>
-                
-                <div className="flex items-start gap-3">
-                  <span className="font-medium text-white/90 min-w-[60px]">교환:</span>
-                  <span>
-                    상품 수령 후 7일 이내 가능
-                    {detail.exchangeFee !== undefined && detail.exchangeFee !== null && detail.exchangeFee > 0 && (
-                      <span className="text-white/60 ml-2">(교환비: {detail.exchangeFee.toLocaleString()}원)</span>
-                    )}
-                  </span>
-                </div>
-                
-                <div className="flex items-start gap-3">
-                  <span className="font-medium text-white/90 min-w-[60px]">반품:</span>
-                  <span>
-                    상품 수령 후 7일 이내 가능
-                    {detail.returnFee !== undefined && detail.returnFee !== null && detail.returnFee > 0 && (
-                      <span className="text-white/60 ml-2">(반품비: {detail.returnFee.toLocaleString()}원)</span>
-                    )}
-                  </span>
-                </div>
-                
-                <p>환불: 상품 회수 확인 후 영업일 기준 3일 이내 처리됩니다.</p>
-                
-                {/* 무이자할부 (SELLER 전용) */}
-                {detail.freeInterest && detail.freeInterest > 0 && (
-                  <div className="flex items-start gap-3 pt-2 border-t border-white/10">
-                    <span className="font-medium text-brand-neon min-w-[60px]">혜택:</span>
-                    <span className="text-brand-neon">{detail.freeInterest}개월 무이자할부</span>
-                  </div>
+                        <span>판매자 정책에 따릅니다</span>
+                      )}
+                    </p>
+                    <p>
+                      <strong className="text-white/90">배송기간:</strong> 주문 후 2-3일 이내 발송 (영업일 기준)
+                    </p>
+                    <p className="text-white/50 text-xs mt-3">
+                      * 도서산간 지역은 추가 배송비가 발생할 수 있습니다.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p>
+                      <strong className="text-white/90">배송:</strong> 네이버 스마트스토어 정책에 따릅니다.
+                    </p>
+                    <p>일반적으로 주문 후 2-3일 이내 발송됩니다 (영업일 기준).</p>
+                  </>
                 )}
-                
-                {/* 사은품 (SELLER 전용) */}
-                {detail.gift && (
-                  <div className="flex items-start gap-3">
-                    <span className="font-medium text-white/90 min-w-[60px]">사은품:</span>
-                    <span className="text-white/90">{detail.gift}</span>
-                  </div>
+              </div>
+            )}
+
+            {activeDeliveryTab === 'exchange' && (
+              <div className="space-y-3">
+                <p>
+                  <strong className="text-white/90">교환 가능 기간:</strong> 상품 수령 후 7일 이내
+                </p>
+                {detail?.exchangeFee !== undefined && detail?.exchangeFee !== null && detail.exchangeFee > 0 && (
+                  <p>
+                    <strong className="text-white/90">교환비용:</strong> {detail.exchangeFee.toLocaleString()}원
+                  </p>
                 )}
-              </>
-            ) : (
-              /* GLOBAL 상품: 기본 안내문 */
-              <>
+                <p>단순 변심으로 인한 교환 시 왕복 배송비가 발생합니다.</p>
+                <p className="text-white/50 text-xs mt-3">
+                  * 상품 하자 또는 오배송의 경우 무료로 교환해드립니다.
+                </p>
+              </div>
+            )}
+
+            {activeDeliveryTab === 'return' && (
+              <div className="space-y-3">
                 <p>
-                  배송: 네이버 스마트스토어 정책에 따릅니다. (일반적으로 2-3일 소요)
+                  <strong className="text-white/90">반품 가능 기간:</strong> 상품 수령 후 7일 이내
+                </p>
+                {detail?.returnFee !== undefined && detail?.returnFee !== null && detail.returnFee > 0 && (
+                  <p>
+                    <strong className="text-white/90">반품비용:</strong> {detail.returnFee.toLocaleString()}원
+                  </p>
+                )}
+                <p>단순 변심으로 인한 반품 시 왕복 배송비가 발생합니다.</p>
+                <div className="mt-4 p-3 bg-white/5 rounded-lg">
+                  <p className="text-white/90 font-medium mb-2">반품 불가 사항:</p>
+                  <ul className="list-disc list-inside space-y-1 text-white/60 text-xs">
+                    <li>포장을 개봉하여 사용감이 있는 경우</li>
+                    <li>상품 가치가 훼손된 경우</li>
+                    <li>시간이 지나 재판매가 곤란한 경우</li>
+                  </ul>
+                </div>
+              </div>
+            )}
+
+            {activeDeliveryTab === 'refund' && (
+              <div className="space-y-3">
+                <p>
+                  <strong className="text-white/90">환불 처리 기간:</strong> 상품 회수 확인 후 영업일 기준 3일 이내
                 </p>
                 <p>
-                  교환/반품: 상품 수령 후 7일 이내에 가능합니다. 자세한 내용은 판매자에게 문의해주세요.
+                  <strong className="text-white/90">환불 방법:</strong> 결제하신 수단으로 자동 환불됩니다.
                 </p>
-                <p>
-                  환불: 상품 회수 확인 후 영업일 기준 3일 이내 처리됩니다.
-                </p>
-              </>
+                <div className="mt-4 space-y-2">
+                  <p className="text-white/60">• 신용카드: 카드사 승인 취소 (영업일 3-5일 소요)</p>
+                  <p className="text-white/60">• 계좌이체: 환불 계좌로 입금 (영업일 2-3일 소요)</p>
+                  <p className="text-white/60">• 네이버페이: 네이버페이 포인트 또는 결제수단으로 환불</p>
+                </div>
+              </div>
             )}
           </div>
         </div>
@@ -498,7 +559,7 @@ export default function ProductDetail({ product, relatedProducts = [] }: Product
                 </div>
               )}
               
-              {/* iframe 컨테이너 - 보수적인 max-height + 스크롤 */}
+              {/* iframe 컨테이너 */}
               <div 
                 className={`relative transition-all duration-500 ease-in-out ${
                   showFullDescription ? 'max-h-[2500px] overflow-y-auto' : 'max-h-[500px] overflow-hidden'
@@ -507,13 +568,12 @@ export default function ProductDetail({ product, relatedProducts = [] }: Product
                   display: isDescriptionLoaded ? 'block' : 'none'
                 }}
               >
-                {/* iframe으로 상세 페이지 로드 */}
                 <iframe
                   ref={iframeRef}
                   src={product.productDescriptionUrl}
                   className="w-full border-0"
                   style={{ 
-                    height: '2500px', // 컨테이너와 동일한 높이
+                    height: '2500px',
                     minHeight: '500px'
                   }}
                   onLoad={handleIframeLoad}
@@ -521,13 +581,13 @@ export default function ProductDetail({ product, relatedProducts = [] }: Product
                   sandbox="allow-scripts allow-same-origin"
                 />
                 
-                {/* 하단 그라데이션 (더보기 버튼 있을 때만) */}
+                {/* 하단 그라데이션 */}
                 {!showFullDescription && (
                   <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-dark-bg via-dark-bg/80 to-transparent pointer-events-none" />
                 )}
               </div>
               
-              {/* 더보기 버튼 - 글래스모피즘 스타일 */}
+              {/* 더보기 버튼 */}
               {!showFullDescription && isDescriptionLoaded && (
                 <div className="p-6 bg-dark-card/20 backdrop-blur-sm rounded-b-xl">
                   <button
@@ -554,7 +614,7 @@ export default function ProductDetail({ product, relatedProducts = [] }: Product
         {relatedProducts.length > 0 && (
           <div className="mb-16">
             <h2 className="text-2xl font-bold mb-8">관련 상품</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-6">
               {relatedProducts.map((relatedProduct) => (
                 <ProductCard key={relatedProduct.id} product={relatedProduct} />
               ))}

@@ -10,11 +10,11 @@ async function getRelatedProducts(currentProductId: string, sourceCid?: string |
   try {
     const result = await getComposedProducts({
       category: sourceCid || undefined,
-      pageSize: 5,
+      pageSize: 21, // 현재 상품 제외하고 20개를 보여주기 위해 21개 요청
     });
 
-    // 현재 상품을 제외하고 4개만 반환
-    return result.combined.filter(p => p.id !== currentProductId).slice(0, 4);
+    // 현재 상품을 제외하고 20개만 반환
+    return result.combined.filter(p => p.id !== currentProductId).slice(0, 20);
   } catch (error) {
     console.error('Failed to fetch related products:', error);
     return [];
