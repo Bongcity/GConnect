@@ -9,7 +9,7 @@ import {
   XMarkIcon,
   PlusIcon,
 } from '@heroicons/react/24/outline';
-import InquiryModal from '@/components/inquiry/InquiryModal';
+import { InquiryModal } from '@/components/inquiry/InquiryModal';
 
 interface Inquiry {
   id: string;
