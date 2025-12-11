@@ -18,11 +18,16 @@ export async function GET(req: NextRequest) {
     try {
       const settings = await prisma.systemSettings.findFirst();
       showDdroProducts = settings?.showDdroProducts ?? true;
-    } catch (settingsError) {
-      console.warn('[API /category-hierarchy] ⚠️ SystemSettings 조회 실패, 기본값(true) 사용:', settingsError);
+      console.log('[API /category-hierarchy] ✅ SystemSettings 조회 성공:', settings);
+    } catch (settingsError: any) {
+      console.error('[API /category-hierarchy] ⚠️ SystemSettings 조회 실패, 기본값(true) 사용:', settingsError.message);
+      // SystemSettings 테이블이 없으면 생성 안내
+      if (settingsError.message?.includes('Invalid object name') || settingsError.message?.includes('does not exist')) {
+        console.error('[API /category-hierarchy] 🔴 SystemSettings 테이블이 없습니다! scripts/create-system-settings-table.sql 실행 필요');
+      }
     }
 
-    console.log(`[API /category-hierarchy] 조회 (DDRo: ${showDdroProducts ? 'ON' : 'OFF'}): category1=${category1}, category2=${category2}`);
+    console.log(`[API /category-hierarchy] 조회 시작 (DDRo: ${showDdroProducts ? 'ON' : 'OFF'}): category1=${category1}, category2=${category2}`);
 
     // 1단계: 대분류만 조회 (대표 cid 포함)
     if (!category1) {
@@ -34,33 +39,46 @@ export async function GET(req: NextRequest) {
 
       if (showDdroProducts) {
         // DDRo ON: DDRo 상품 포함
-        categories = await ddroPrisma.$queryRaw`
-          WITH RankedCategories AS (
+        console.log('[API /category-hierarchy] DDRo ON - DDRo DB에서 카테고리 조회');
+        
+        try {
+          categories = await ddroPrisma.$queryRaw`
+            WITH RankedCategories AS (
+              SELECT 
+                nc.category_1,
+                nc.cid,
+                COUNT(DISTINCT ap.id) as product_count,
+                ROW_NUMBER() OVER (PARTITION BY nc.category_1 ORDER BY COUNT(DISTINCT ap.id) DESC) as rn
+              FROM NaverCategories nc
+              LEFT JOIN affiliate_products ap ON nc.cid = ap.source_cid AND ap.enabled = 1
+              WHERE nc.category_1 IS NOT NULL
+              GROUP BY nc.category_1, nc.cid
+            )
             SELECT 
-              nc.category_1,
-              nc.cid,
-              COUNT(DISTINCT ap.id) as product_count,
-              ROW_NUMBER() OVER (PARTITION BY nc.category_1 ORDER BY COUNT(DISTINCT ap.id) DESC) as rn
-            FROM NaverCategories nc
-            LEFT JOIN affiliate_products ap ON nc.cid = ap.source_cid AND ap.enabled = 1
-            WHERE nc.category_1 IS NOT NULL
-            GROUP BY nc.category_1, nc.cid
-          )
-          SELECT 
-            category_1,
-            cid,
-            SUM(product_count) as product_count
-          FROM RankedCategories
-          WHERE rn = 1
-          GROUP BY category_1, cid
-          ORDER BY SUM(product_count) DESC
-        `;
+              category_1,
+              cid,
+              SUM(product_count) as product_count
+            FROM RankedCategories
+            WHERE rn = 1
+            GROUP BY category_1, cid
+            ORDER BY SUM(product_count) DESC
+          `;
+          
+          console.log(`[API /category-hierarchy] DDRo DB 조회 성공: ${categories.length}개 카테고리`);
+        } catch (ddroError: any) {
+          console.error('[API /category-hierarchy] 🔴 DDRo DB 조회 실패:', ddroError.message);
+          categories = [];
+        }
       } else {
         // DDRo OFF: Seller 상품만 (GCONNECT DB)
+        console.log('[API /category-hierarchy] DDRo OFF - Seller 상품에서 카테고리 조회');
+        
         const sellerProducts = await prisma.product.findMany({
           where: { enabled: true, source_cid: { not: null } },
           select: { source_cid: true }
         });
+
+        console.log(`[API /category-hierarchy] Seller 상품 ${sellerProducts.length}개 발견`);
 
         const cidCounts = new Map<string, number>();
         sellerProducts.forEach(p => {
@@ -70,14 +88,23 @@ export async function GET(req: NextRequest) {
         });
 
         const uniqueCids = Array.from(cidCounts.keys());
+        console.log(`[API /category-hierarchy] 고유 CID ${uniqueCids.length}개:`, uniqueCids.slice(0, 5));
+
         if (uniqueCids.length > 0) {
-          const categoryData = await ddroPrisma.$queryRaw<
-            Array<{ cid: string; category_1: string | null }>
-          >`
-            SELECT DISTINCT cid, category_1
-            FROM NaverCategories
-            WHERE cid IN (${uniqueCids.join(',')}) AND category_1 IS NOT NULL
-          `;
+          // Prisma의 올바른 방식으로 IN 쿼리 수정
+          const categoryData = await ddroPrisma.naverCategories.findMany({
+            where: {
+              cid: { in: uniqueCids },
+              category_1: { not: null }
+            },
+            select: {
+              cid: true,
+              category_1: true
+            },
+            distinct: ['cid', 'category_1']
+          });
+
+          console.log(`[API /category-hierarchy] NaverCategories에서 ${categoryData.length}개 카테고리명 조회됨`);
 
           const category1Map = new Map<string, { cid: string; count: number }>();
           categoryData.forEach(cat => {
@@ -102,17 +129,22 @@ export async function GET(req: NextRequest) {
               product_count: data.count
             }))
             .sort((a, b) => b.product_count - a.product_count);
+
+          console.log(`[API /category-hierarchy] 최종 1단계 카테고리 ${categories.length}개`);
         }
       }
 
-      return NextResponse.json({
+      const result = {
         level: 1,
         categories: categories.map(c => ({
           name: c.category_1,
           cid: c.cid,
           productCount: Number(c.product_count),
         })),
-      });
+      };
+
+      console.log(`[API /category-hierarchy] ✅ 1단계 카테고리 응답: ${result.categories.length}개`);
+      return NextResponse.json(result);
     }
 
     // 2단계: 중분류 조회 (대표 cid 포함)
