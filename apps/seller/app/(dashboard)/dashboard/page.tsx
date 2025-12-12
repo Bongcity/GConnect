@@ -232,9 +232,9 @@ export default function DashboardPage() {
                   onChange={(e) => setSelectedPeriod(Number(e.target.value))}
                   className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:border-brand-cyan/50 transition-colors"
                 >
-                  <option value={7}>최근 7일</option>
-                  <option value={30}>최근 30일</option>
-                  <option value={90}>최근 90일</option>
+                  <option value={7} className="bg-white text-gray-900">최근 7일</option>
+                  <option value={30} className="bg-white text-gray-900">최근 30일</option>
+                  <option value={90} className="bg-white text-gray-900">최근 90일</option>
                 </select>
               </div>
 
