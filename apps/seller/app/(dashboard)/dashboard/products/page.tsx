@@ -43,7 +43,7 @@ export default function ProductsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all');
+  const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive' | 'google-exposed' | 'sync-pending'>('all');
   const [subscriptionData, setSubscriptionData] = useState<SubscriptionData | null>(null);
 
   // 상품 목록 조회
@@ -107,9 +107,20 @@ export default function ProductsPage() {
     const matchesFilter =
       filterStatus === 'all' ||
       (filterStatus === 'active' && product.isActive) ||
-      (filterStatus === 'inactive' && !product.isActive);
+      (filterStatus === 'inactive' && !product.isActive) ||
+      (filterStatus === 'google-exposed' && product.isGoogleExposed) ||
+      (filterStatus === 'sync-pending' && product.syncStatus === 'PENDING');
     return matchesSearch && matchesFilter;
   });
+
+  // 통계 계산
+  const stats = {
+    total: products.length,
+    active: products.filter(p => p.isActive).length,
+    inactive: products.filter(p => !p.isActive).length,
+    googleExposed: products.filter(p => p.isGoogleExposed).length,
+    syncPending: products.filter(p => p.syncStatus === 'PENDING').length,
+  };
 
   // 동기화 상태 아이콘
   const getSyncStatusBadge = (status: string) => {
@@ -203,28 +214,26 @@ export default function ProductsPage() {
         </div>
 
         {/* 통계 카드 */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <div className="glass-card p-4">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+          <div className="glass-card p-4 cursor-pointer hover:bg-white/5 transition-colors" onClick={() => setFilterStatus('all')}>
             <p className="text-sm text-white/60 mb-1">전체 상품</p>
-            <p className="text-3xl font-bold text-white">{products.length}</p>
+            <p className="text-3xl font-bold text-white">{stats.total}</p>
           </div>
-          <div className="glass-card p-4">
+          <div className="glass-card p-4 cursor-pointer hover:bg-white/5 transition-colors" onClick={() => setFilterStatus('active')}>
             <p className="text-sm text-white/60 mb-1">활성 상품</p>
-            <p className="text-3xl font-bold text-green-400">
-              {products.filter((p) => p.isActive).length}
-            </p>
+            <p className="text-3xl font-bold text-green-400">{stats.active}</p>
           </div>
-          <div className="glass-card p-4">
+          <div className="glass-card p-4 cursor-pointer hover:bg-white/5 transition-colors" onClick={() => setFilterStatus('inactive')}>
+            <p className="text-sm text-white/60 mb-1">비활성 상품</p>
+            <p className="text-3xl font-bold text-red-400">{stats.inactive}</p>
+          </div>
+          <div className="glass-card p-4 cursor-pointer hover:bg-white/5 transition-colors" onClick={() => setFilterStatus('google-exposed')}>
             <p className="text-sm text-white/60 mb-1">구글 노출</p>
-            <p className="text-3xl font-bold text-brand-cyan">
-              {products.filter((p) => p.isGoogleExposed).length}
-            </p>
+            <p className="text-3xl font-bold text-brand-cyan">{stats.googleExposed}</p>
           </div>
-          <div className="glass-card p-4">
+          <div className="glass-card p-4 cursor-pointer hover:bg-white/5 transition-colors" onClick={() => setFilterStatus('sync-pending')}>
             <p className="text-sm text-white/60 mb-1">동기화 대기</p>
-            <p className="text-3xl font-bold text-yellow-400">
-              {products.filter((p) => p.syncStatus === 'PENDING').length}
-            </p>
+            <p className="text-3xl font-bold text-yellow-400">{stats.syncPending}</p>
           </div>
         </div>
 
@@ -243,7 +252,7 @@ export default function ProductsPage() {
           </div>
 
           {/* 필터 */}
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <button
               onClick={() => setFilterStatus('all')}
               className={`px-4 py-3 rounded-xl font-medium transition-colors ${
@@ -252,7 +261,8 @@ export default function ProductsPage() {
                   : 'bg-white/5 text-white/80 hover:bg-white/10'
               }`}
             >
-              전체
+              전체상품
+              <span className="ml-2 text-xs opacity-70">({stats.total})</span>
             </button>
             <button
               onClick={() => setFilterStatus('active')}
@@ -262,7 +272,8 @@ export default function ProductsPage() {
                   : 'bg-white/5 text-white/80 hover:bg-white/10'
               }`}
             >
-              활성
+              활성 상품
+              <span className="ml-2 text-xs opacity-70">({stats.active})</span>
             </button>
             <button
               onClick={() => setFilterStatus('inactive')}
@@ -272,7 +283,30 @@ export default function ProductsPage() {
                   : 'bg-white/5 text-white/80 hover:bg-white/10'
               }`}
             >
-              비활성
+              비활성 상품
+              <span className="ml-2 text-xs opacity-70">({stats.inactive})</span>
+            </button>
+            <button
+              onClick={() => setFilterStatus('google-exposed')}
+              className={`px-4 py-3 rounded-xl font-medium transition-colors ${
+                filterStatus === 'google-exposed'
+                  ? 'bg-brand-neon text-brand-navy'
+                  : 'bg-white/5 text-white/80 hover:bg-white/10'
+              }`}
+            >
+              구글 노출
+              <span className="ml-2 text-xs opacity-70">({stats.googleExposed})</span>
+            </button>
+            <button
+              onClick={() => setFilterStatus('sync-pending')}
+              className={`px-4 py-3 rounded-xl font-medium transition-colors ${
+                filterStatus === 'sync-pending'
+                  ? 'bg-brand-neon text-brand-navy'
+                  : 'bg-white/5 text-white/80 hover:bg-white/10'
+              }`}
+            >
+              동기화 대기
+              <span className="ml-2 text-xs opacity-70">({stats.syncPending})</span>
             </button>
           </div>
         </div>
