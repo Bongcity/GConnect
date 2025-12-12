@@ -95,28 +95,28 @@ export default function LogsPage() {
           <table className="w-full table-fixed">
             <thead>
               <tr className="border-b border-white/10">
-                <th className="px-4 py-4 text-left text-sm font-semibold text-white w-[140px]">
+                <th className="px-4 py-4 text-center text-sm font-semibold text-white w-[140px]">
                   시간
                 </th>
-                <th className="px-4 py-4 text-left text-sm font-semibold text-white w-[160px]">
+                <th className="px-4 py-4 text-center text-sm font-semibold text-white w-[160px]">
                   사용자
                 </th>
-                <th className="px-4 py-4 text-left text-sm font-semibold text-white w-[100px]">
+                <th className="px-4 py-4 text-center text-sm font-semibold text-white w-[130px]">
                   유형
                 </th>
-                <th className="px-4 py-4 text-left text-sm font-semibold text-white w-[120px]">
+                <th className="px-4 py-4 text-center text-sm font-semibold text-white w-[120px]">
                   상태
                 </th>
-                <th className="px-4 py-4 text-right text-sm font-semibold text-white w-[60px]">
+                <th className="px-4 py-4 text-center text-sm font-semibold text-white w-[60px]">
                   전체
                 </th>
-                <th className="px-4 py-4 text-right text-sm font-semibold text-white w-[60px]">
+                <th className="px-4 py-4 text-center text-sm font-semibold text-white w-[60px]">
                   성공
                 </th>
-                <th className="px-4 py-4 text-right text-sm font-semibold text-white w-[60px]">
+                <th className="px-4 py-4 text-center text-sm font-semibold text-white w-[60px]">
                   실패
                 </th>
-                <th className="px-4 py-4 text-left text-sm font-semibold text-white">
+                <th className="px-4 py-4 text-center text-sm font-semibold text-white">
                   에러
                 </th>
               </tr>
@@ -137,27 +137,31 @@ export default function LogsPage() {
                     key={log.id}
                     className="border-b border-white/5 hover:bg-white/5 transition-colors"
                   >
-                    <td className="px-4 py-4 text-sm text-white/60 whitespace-nowrap">
+                    <td className="px-4 py-4 text-sm text-center text-white/60 whitespace-nowrap">
                       {format(
                         new Date(log.createdAt),
                         'yyyy-MM-dd HH:mm:ss'
                       )}
                     </td>
-                    <td className="px-4 py-4 text-sm text-white truncate" title={log.user.shopName || log.user.email}>
+                    <td className="px-4 py-4 text-sm text-center text-white truncate" title={log.user.shopName || log.user.email}>
                       {log.user.shopName || log.user.email}
                     </td>
-                    <td className="px-4 py-4 text-sm text-white">{log.syncType}</td>
-                    <td className="px-4 py-4">{getStatusBadge(log.status)}</td>
-                    <td className="px-4 py-4 text-sm text-right text-white">
+                    <td className="px-4 py-4 text-sm text-center text-white">{log.syncType}</td>
+                    <td className="px-4 py-4">
+                      <div className="flex justify-center">
+                        {getStatusBadge(log.status)}
+                      </div>
+                    </td>
+                    <td className="px-4 py-4 text-sm text-center text-white">
                       {log.itemsTotal}
                     </td>
-                    <td className="px-4 py-4 text-sm text-right text-green-400">
+                    <td className="px-4 py-4 text-sm text-center text-green-400">
                       {log.itemsSynced}
                     </td>
-                    <td className="px-4 py-4 text-sm text-right text-red-400">
+                    <td className="px-4 py-4 text-sm text-center text-red-400">
                       {log.itemsFailed}
                     </td>
-                    <td className="px-4 py-4 text-sm text-red-400/80">
+                    <td className="px-4 py-4 text-sm text-center text-red-400/80">
                       {log.errorLog ? (
                         <div className="group relative">
                           <span className="truncate block cursor-help">
@@ -167,7 +171,7 @@ export default function LogsPage() {
                           </span>
                           {log.errorLog.length > 50 && (
                             <div className="hidden group-hover:block absolute z-50 left-0 top-full mt-2 p-3 bg-gray-900 border border-red-500/30 rounded-lg shadow-xl max-w-md">
-                              <p className="text-xs text-red-400 break-words whitespace-pre-wrap">
+                              <p className="text-xs text-left text-red-400 break-words whitespace-pre-wrap">
                                 {log.errorLog}
                               </p>
                             </div>
