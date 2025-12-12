@@ -20,6 +20,7 @@ export default function ProductDetail({ product, relatedProducts = [] }: Product
   const [isDescriptionLoaded, setIsDescriptionLoaded] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [activeDeliveryTab, setActiveDeliveryTab] = useState('delivery'); // delivery, exchange, return, refund
+  const [showShareModal, setShowShareModal] = useState(false);
   const [showShareToast, setShowShareToast] = useState(false);
   const [shareToastMessage, setShareToastMessage] = useState('');
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -75,8 +76,25 @@ export default function ProductDetail({ product, relatedProducts = [] }: Product
     return new Intl.NumberFormat('ko-KR').format(price);
   };
 
-  // 공유하기 핸들러
-  const handleShare = async () => {
+  // 공유 모달 열기
+  const handleShare = () => {
+    setShowShareModal(true);
+  };
+
+  // 링크 복사
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      showToast('링크가 복사되었습니다! 📋');
+      setShowShareModal(false);
+    } catch (error) {
+      showToast('링크 복사에 실패했습니다.');
+      console.error('[ProductDetail] 링크 복사 오류:', error);
+    }
+  };
+
+  // 네이티브 공유
+  const handleNativeShare = async () => {
     const shareData = {
       title: product.productName,
       text: `${product.productName} - GConnect에서 확인하세요`,
@@ -84,29 +102,23 @@ export default function ProductDetail({ product, relatedProducts = [] }: Product
     };
 
     try {
-      // Web Share API 지원 여부 확인 (주로 모바일)
       if (navigator.share) {
         await navigator.share(shareData);
         showToast('공유되었습니다! 🎉');
+        setShowShareModal(false);
       } else {
-        // Web Share API 미지원 시 클립보드 복사
-        await navigator.clipboard.writeText(window.location.href);
-        showToast('링크가 복사되었습니다! 📋');
+        // Web Share API 미지원 시 링크 복사
+        await handleCopyLink();
       }
     } catch (error: any) {
       // 사용자가 공유를 취소한 경우 (AbortError)
       if (error.name === 'AbortError') {
+        setShowShareModal(false);
         return;
       }
       
-      // 그 외 오류 발생 시 클립보드 복사 시도
-      try {
-        await navigator.clipboard.writeText(window.location.href);
-        showToast('링크가 복사되었습니다! 📋');
-      } catch (clipboardError) {
-        showToast('공유에 실패했습니다. 다시 시도해주세요.');
-        console.error('[ProductDetail] 공유 오류:', clipboardError);
-      }
+      showToast('공유에 실패했습니다.');
+      console.error('[ProductDetail] 공유 오류:', error);
     }
   };
 
@@ -760,6 +772,66 @@ export default function ProductDetail({ product, relatedProducts = [] }: Product
               {relatedProducts.map((relatedProduct) => (
                 <ProductCard key={relatedProduct.id} product={relatedProduct} />
               ))}
+            </div>
+          </div>
+        )}
+
+        {/* 공유 모달 */}
+        {showShareModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            {/* 배경 오버레이 */}
+            <div 
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              onClick={() => setShowShareModal(false)}
+            />
+            
+            {/* 모달 컨텐츠 */}
+            <div className="relative glass-card p-6 w-full max-w-sm animate-bounce-in">
+              <h3 className="text-xl font-bold text-white mb-6 text-center">
+                공유하기
+              </h3>
+              
+              <div className="space-y-3">
+                {/* 링크 복사 */}
+                <button
+                  onClick={handleCopyLink}
+                  className="w-full px-6 py-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl transition-all duration-300 flex items-center gap-4"
+                >
+                  <div className="w-12 h-12 bg-gradient-to-br from-brand-neon/20 to-brand-cyan/20 rounded-xl flex items-center justify-center flex-shrink-0">
+                    <svg className="w-6 h-6 text-brand-neon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                  </div>
+                  <div className="text-left">
+                    <p className="font-semibold text-white">링크 복사</p>
+                    <p className="text-sm text-white/60">클립보드에 복사</p>
+                  </div>
+                </button>
+
+                {/* 공유하기 */}
+                <button
+                  onClick={handleNativeShare}
+                  className="w-full px-6 py-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl transition-all duration-300 flex items-center gap-4"
+                >
+                  <div className="w-12 h-12 bg-gradient-to-br from-brand-cyan/20 to-brand-neon/20 rounded-xl flex items-center justify-center flex-shrink-0">
+                    <ShareIcon className="w-6 h-6 text-brand-cyan" />
+                  </div>
+                  <div className="text-left">
+                    <p className="font-semibold text-white">공유하기</p>
+                    <p className="text-sm text-white/60">카카오톡, SNS 등</p>
+                  </div>
+                </button>
+              </div>
+
+              {/* 닫기 버튼 */}
+              <button
+                onClick={() => setShowShareModal(false)}
+                className="absolute -top-3 -right-3 w-8 h-8 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center transition-colors"
+              >
+                <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
             </div>
           </div>
         )}
