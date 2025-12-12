@@ -39,16 +39,16 @@ export async function GET() {
         plan: {
           name: 'FREE',
           displayName: '무료 체험',
-          maxProducts: 100,
+          maxProducts: 5,
           monthlyPrice: 0,
         },
         usage: {
           currentProducts: productCount,
-          maxProducts: 100,
-          remainingSlots: Math.max(0, 100 - productCount),
-          usagePercentage: Math.min(100, (productCount / 100) * 100),
+          maxProducts: 5,
+          remainingSlots: Math.max(0, 5 - productCount),
+          usagePercentage: Math.min(100, (productCount / 5) * 100),
         },
-        needsUpgrade: productCount >= 100,
+        needsUpgrade: productCount >= 5,
       });
     }
 

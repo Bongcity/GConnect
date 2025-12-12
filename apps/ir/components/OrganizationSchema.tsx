@@ -21,21 +21,21 @@ export default function OrganizationSchema() {
       {
         '@type': 'Offer',
         name: 'Starter 플랜',
-        price: '300000',
+        price: '39000',
         priceCurrency: 'KRW',
-        description: '상품 10,000개 이하 스마트스토어를 위한 기본 플랜',
+        description: '상품 10개 이하 스마트스토어를 위한 기본 플랜',
       },
       {
         '@type': 'Offer',
         name: 'Pro 플랜',
-        price: '800000',
+        price: '59000',
         priceCurrency: 'KRW',
-        description: '상품 50,000개 이하 스토어를 위한 프로 플랜',
+        description: '상품 50개 이하 스토어를 위한 프로 플랜',
       },
       {
         '@type': 'Offer',
         name: 'Enterprise 플랜',
-        description: '상품 50,000개 초과 대규모 스토어 및 에이전시를 위한 커스텀 플랜',
+        description: '상품 50개 초과 대규모 스토어 및 에이전시를 위한 커스텀 플랜',
       },
     ],
   };

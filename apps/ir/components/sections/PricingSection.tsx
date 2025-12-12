@@ -7,8 +7,8 @@ import Link from 'next/link';
 const plans = [
   {
     name: 'Starter',
-    price: '300,000',
-    maxProducts: '10,000개 이하',
+    price: '39,000',
+    maxProducts: '10개 이하',
     description: '소규모 스마트스토어를 위한 기본 플랜',
     features: [
       '기본 SEO 구조화',
@@ -20,8 +20,8 @@ const plans = [
   },
   {
     name: 'Pro',
-    price: '800,000',
-    maxProducts: '50,000개 이하',
+    price: '59,000',
+    maxProducts: '50개 이하',
     description: '성장하는 스토어를 위한 프로 플랜',
     features: [
       '고급 SEO 구조화',
@@ -35,7 +35,7 @@ const plans = [
   {
     name: 'Enterprise',
     price: '협의',
-    maxProducts: '50,000개 초과',
+    maxProducts: '50개 초과',
     description: '대규모 스토어 및 에이전시를 위한 커스텀 플랜',
     features: [
       '커스텀 SEO 구조화',
