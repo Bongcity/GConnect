@@ -80,5 +80,15 @@
       transform: translateX(-50%) translateY(0);
     }
   }
+
+  /* 스크롤바 숨기기 (스크롤 기능은 유지) */
+  .scrollbar-hide {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+  }
+  
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;  /* Chrome, Safari, Opera */
+  }
 }
 

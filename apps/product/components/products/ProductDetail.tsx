@@ -328,26 +328,42 @@ export default function ProductDetail({ product, relatedProducts = [] }: Product
               )}
             </div>
 
-            {/* 썸네일 이미지 */}
+            {/* 썸네일 이미지 갤러리 */}
             {images.length > 1 && (
-              <div className="grid grid-cols-4 gap-3">
-                {images.slice(0, 4).map((img, index) => (
-                  <button
-                    key={index}
-                    onClick={() => setSelectedImageIndex(index)}
-                    className={`relative aspect-square rounded-lg overflow-hidden transition-all ${
-                      index === selectedImageIndex
-                        ? 'ring-2 ring-brand-neon scale-105'
-                        : 'opacity-60 hover:opacity-100'
-                    }`}
-                  >
-                    <img
-                      src={img}
-                      alt={`${product.productName} ${index + 1}`}
-                      className="absolute inset-0 w-full h-full object-cover"
-                    />
-                  </button>
-                ))}
+              <div className="relative">
+                {/* 스크롤 가능한 썸네일 컨테이너 */}
+                <div className="overflow-x-auto scrollbar-hide">
+                  <div className="flex gap-3 pb-2">
+                    {images.map((img, index) => (
+                      <button
+                        key={index}
+                        onClick={() => setSelectedImageIndex(index)}
+                        className={`relative flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden transition-all ${
+                          index === selectedImageIndex
+                            ? 'ring-2 ring-brand-neon scale-105'
+                            : 'opacity-60 hover:opacity-100'
+                        }`}
+                      >
+                        <img
+                          src={img}
+                          alt={`${product.productName} ${index + 1}`}
+                          className="absolute inset-0 w-full h-full object-cover"
+                        />
+                        {/* 이미지 순서 표시 */}
+                        <div className="absolute bottom-1 right-1 bg-black/70 text-white text-xs px-1.5 py-0.5 rounded">
+                          {index + 1}/{images.length}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                
+                {/* 이미지 개수 표시 */}
+                {images.length > 4 && (
+                  <div className="mt-2 text-center text-sm text-white/60">
+                    전체 {images.length}개 이미지 · 좌우로 스크롤하세요
+                  </div>
+                )}
               </div>
             )}
           </div>
