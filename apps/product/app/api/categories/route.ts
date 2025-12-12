@@ -96,9 +96,10 @@ export async function GET(req: NextRequest) {
             cid: true,
             category_1: true
           }
+          // distinct 제거 - cid는 이미 고유하므로 불필요
         });
         
-        console.log(`[API /categories] 조회된 카테고리 데이터:`, categoryData);
+        console.log(`[API /categories] 조회된 카테고리 데이터 (${categoryData.length}개):`, categoryData);
 
         // category_1별로 그룹화하여 상품 수 합산
         // Step 1: category_1별로 모든 cid와 상품 수 수집
