@@ -99,11 +99,26 @@ export default function Footer() {
           </div>
         </div>
 
-        {/* Copyright */}
+        {/* 회사 정보 */}
         <div className="pt-8 border-t border-white/10">
-          <p className="text-white/40 text-sm text-center">
-            © {new Date().getFullYear()} GConnect. All rights reserved.
-          </p>
+          <div className="text-white/40 text-sm space-y-2">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-center gap-2 md:gap-4">
+              <span>상호: 인포24</span>
+              <span className="hidden md:inline">|</span>
+              <span>사업자등록번호: 514-24-41035</span>
+              <span className="hidden md:inline">|</span>
+              <span>대표자명: 박건우</span>
+            </div>
+            <div className="flex flex-col md:flex-row md:items-center md:justify-center gap-2 md:gap-4">
+              <span>통신판매업신고: 제 2022-대구수성구-0486 호</span>
+            </div>
+            <div className="flex flex-col md:flex-row md:items-center md:justify-center gap-2 md:gap-4">
+              <span>주소: 대구광역시 수성구 국채보상로186길 51, 2층</span>
+            </div>
+            <div className="text-center mt-4 pt-4 border-t border-white/5">
+              <p>Copyright by 인포24 . All rights reserved.</p>
+            </div>
+          </div>
         </div>
       </div>
     </footer>
