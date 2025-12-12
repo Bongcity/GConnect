@@ -88,7 +88,7 @@ export default async function ProductDetailPage({
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
-      <main className="flex-1 section-padding">
+      <main className="flex-1 py-6 md:py-8">
         <ProductDetail product={product} relatedProducts={relatedProducts} />
       </main>
       <Footer />
