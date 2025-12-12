@@ -332,38 +332,41 @@ export default function ProductDetail({ product, relatedProducts = [] }: Product
             {images.length > 1 && (
               <div className="relative">
                 {/* 스크롤 가능한 썸네일 컨테이너 */}
-                <div className="overflow-x-auto scrollbar-hide">
-                  <div className="flex gap-3 pb-2">
+                <div className="overflow-x-auto overflow-y-hidden scrollbar-hide scroll-smooth -mx-1 px-1">
+                  <div className="flex gap-3 min-w-min py-1">
                     {images.map((img, index) => (
                       <button
                         key={index}
                         onClick={() => setSelectedImageIndex(index)}
-                        className={`relative flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden transition-all ${
+                        className={`relative flex-shrink-0 w-24 h-24 rounded-xl transition-all duration-200 ${
                           index === selectedImageIndex
-                            ? 'ring-2 ring-brand-neon scale-105'
-                            : 'opacity-60 hover:opacity-100'
+                            ? 'ring-3 ring-brand-neon opacity-100'
+                            : 'ring-1 ring-white/10 opacity-50 hover:opacity-80 hover:ring-white/30'
                         }`}
                       >
+                        {/* 배경 그라디언트 효과 */}
+                        {index === selectedImageIndex && (
+                          <div className="absolute inset-0 bg-gradient-to-br from-brand-neon/20 to-brand-cyan/20 rounded-xl" />
+                        )}
+                        
                         <img
                           src={img}
                           alt={`${product.productName} ${index + 1}`}
-                          className="absolute inset-0 w-full h-full object-cover"
+                          className="relative w-full h-full object-cover rounded-xl"
                         />
+                        
                         {/* 이미지 순서 표시 */}
-                        <div className="absolute bottom-1 right-1 bg-black/70 text-white text-xs px-1.5 py-0.5 rounded">
-                          {index + 1}/{images.length}
+                        <div className={`absolute top-2 right-2 text-xs font-bold px-2 py-1 rounded-lg backdrop-blur-md ${
+                          index === selectedImageIndex 
+                            ? 'bg-brand-neon/90 text-brand-navy' 
+                            : 'bg-black/60 text-white'
+                        }`}>
+                          {index + 1}
                         </div>
                       </button>
                     ))}
                   </div>
                 </div>
-                
-                {/* 이미지 개수 표시 */}
-                {images.length > 4 && (
-                  <div className="mt-2 text-center text-sm text-white/60">
-                    전체 {images.length}개 이미지 · 좌우로 스크롤하세요
-                  </div>
-                )}
               </div>
             )}
           </div>
