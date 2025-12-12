@@ -7,7 +7,7 @@ export default function Footer() {
   return (
     <footer className="bg-white/5 backdrop-blur-sm border-t border-white/10 mt-auto">
       <div className="container-custom py-12">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
           {/* 브랜드 */}
           <div>
             <Link href="/" className="inline-block mb-4">
@@ -77,23 +77,6 @@ export default function Footer() {
                 >
                   서비스 안내
                 </a>
-              </li>
-            </ul>
-          </div>
-
-          {/* 고객 지원 */}
-          <div>
-            <h3 className="text-white font-semibold mb-4">고객 지원</h3>
-            <ul className="space-y-2">
-              <li>
-                <a href="mailto:support@gconnect.kr" className="text-white/60 hover:text-white text-sm transition-colors">
-                  이메일 문의
-                </a>
-              </li>
-              <li>
-                <span className="text-white/60 text-sm">
-                  평일 09:00-18:00
-                </span>
               </li>
             </ul>
           </div>
