@@ -38,11 +38,69 @@ export async function GET(req: NextRequest) {
       }> = [];
 
       if (showDdroProducts) {
-        // DDRo ON: DDRo 상품 포함
-        console.log('[API /category-hierarchy] DDRo ON - DDRo DB에서 카테고리 조회');
+        // DDRo ON: Seller 카테고리 우선 + DDRo 카테고리 추가
+        console.log('[API /category-hierarchy] DDRo ON - Seller 카테고리 우선 조회');
+        
+        // 1. Seller 상품 카테고리 조회 (GCONNECT DB)
+        const sellerProducts = await prisma.product.findMany({
+          where: { enabled: true, source_cid: { not: null } },
+          select: { source_cid: true }
+        });
+
+        const sellerCidCounts = new Map<string, number>();
+        sellerProducts.forEach(p => {
+          if (p.source_cid) {
+            sellerCidCounts.set(p.source_cid, (sellerCidCounts.get(p.source_cid) || 0) + 1);
+          }
+        });
+
+        const sellerCids = Array.from(sellerCidCounts.keys());
+        console.log(`[API /category-hierarchy] Seller 상품 ${sellerProducts.length}개, 고유 CID ${sellerCids.length}개`);
+
+        // 2. Seller 카테고리명 조회
+        const sellerCategories = new Map<string, { totalCount: number; cids: Array<{ cid: string; count: number }> }>();
+        
+        if (sellerCids.length > 0) {
+          const sellerCategoryData = await prisma.naverCategory.findMany({
+            where: {
+              cid: { in: sellerCids },
+              category_1: { not: null }
+            },
+            select: {
+              cid: true,
+              category_1: true
+            }
+          });
+
+          console.log(`[API /category-hierarchy] Seller NaverCategories ${sellerCategoryData.length}개 조회됨`);
+
+          // category_1별로 그룹화
+          sellerCategoryData.forEach(cat => {
+            if (cat.category_1 && cat.cid) {
+              const count = sellerCidCounts.get(cat.cid) || 0;
+              
+              if (!sellerCategories.has(cat.category_1)) {
+                sellerCategories.set(cat.category_1, { totalCount: 0, cids: [] });
+              }
+              
+              const group = sellerCategories.get(cat.category_1)!;
+              group.totalCount += count;
+              group.cids.push({ cid: cat.cid, count });
+            }
+          });
+
+          console.log(`[API /category-hierarchy] Seller 카테고리 ${sellerCategories.size}개`);
+        }
+
+        // 3. DDRo 카테고리 조회
+        let ddroCategories: Array<{
+          category_1: string;
+          cid: string;
+          product_count: number;
+        }> = [];
         
         try {
-          categories = await ddroPrisma.$queryRaw`
+          ddroCategories = await ddroPrisma.$queryRaw`
             WITH RankedCategories AS (
               SELECT 
                 nc.category_1,
@@ -64,11 +122,54 @@ export async function GET(req: NextRequest) {
             ORDER BY SUM(product_count) DESC
           `;
           
-          console.log(`[API /category-hierarchy] DDRo DB 조회 성공: ${categories.length}개 카테고리`);
+          console.log(`[API /category-hierarchy] DDRo DB 조회 성공: ${ddroCategories.length}개 카테고리`);
         } catch (ddroError: any) {
           console.error('[API /category-hierarchy] 🔴 DDRo DB 조회 실패:', ddroError.message);
-          categories = [];
         }
+
+        // 4. 병합: Seller 우선, DDRo 추가 (중복 제거)
+        const categoryMap = new Map<string, { cid: string; count: number }>();
+        
+        // Seller 카테고리 우선 추가
+        sellerCategories.forEach((data, name) => {
+          const representativeCid = data.cids.sort((a, b) => b.count - a.count)[0].cid;
+          categoryMap.set(name, {
+            cid: representativeCid,
+            count: data.totalCount
+          });
+        });
+
+        // DDRo 카테고리 추가 (중복 제외)
+        ddroCategories.forEach(cat => {
+          if (!categoryMap.has(cat.category_1)) {
+            categoryMap.set(cat.category_1, {
+              cid: cat.cid,
+              count: Number(cat.product_count)
+            });
+          }
+        });
+
+        // 5. 결과 배열 생성 (Seller 우선 정렬)
+        const sellerCategoryNames = new Set(sellerCategories.keys());
+        categories = Array.from(categoryMap.entries())
+          .map(([name, data]) => ({
+            category_1: name,
+            cid: data.cid,
+            product_count: data.count
+          }))
+          .sort((a, b) => {
+            // Seller 카테고리 우선
+            const aIsSeller = sellerCategoryNames.has(a.category_1);
+            const bIsSeller = sellerCategoryNames.has(b.category_1);
+            
+            if (aIsSeller && !bIsSeller) return -1;
+            if (!aIsSeller && bIsSeller) return 1;
+            
+            // 같은 그룹 내에서는 상품 수 기준
+            return b.product_count - a.product_count;
+          });
+
+        console.log(`[API /category-hierarchy] 최종 1단계 카테고리 ${categories.length}개: ${categories.slice(0, 3).map(c => `${c.category_1} (${c.product_count}개)`).join(', ')}...`);
       } else {
         // DDRo OFF: Seller 상품만 (GCONNECT DB)
         console.log('[API /category-hierarchy] DDRo OFF - Seller 상품에서 카테고리 조회');
@@ -169,10 +270,61 @@ export async function GET(req: NextRequest) {
       }> = [];
 
       if (showDdroProducts) {
-        // DDRo ON: DDRo DB 조회
-        console.log(`[API /category-hierarchy] DDRo ON - 2단계 조회: ${category1}`);
+        // DDRo ON: Seller 우선 + DDRo 추가
+        console.log(`[API /category-hierarchy] DDRo ON - 2단계 조회 (Seller 우선): ${category1}`);
         
-        categories = await ddroPrisma.$queryRaw`
+        // 1. Seller 상품 조회
+        const sellerProducts = await prisma.product.findMany({
+          where: { enabled: true, source_cid: { not: null } },
+          select: { source_cid: true }
+        });
+
+        const sellerCidCounts = new Map<string, number>();
+        sellerProducts.forEach(p => {
+          if (p.source_cid) {
+            sellerCidCounts.set(p.source_cid, (sellerCidCounts.get(p.source_cid) || 0) + 1);
+          }
+        });
+
+        const sellerCids = Array.from(sellerCidCounts.keys());
+        
+        // 2. Seller 2단계 카테고리 조회
+        const sellerCategories = new Map<string, { totalCount: number; cids: Array<{ cid: string; count: number }> }>();
+        
+        if (sellerCids.length > 0) {
+          const sellerCategoryData = await prisma.naverCategory.findMany({
+            where: {
+              cid: { in: sellerCids },
+              category_1: category1,
+              category_2: { not: null }
+            },
+            select: {
+              cid: true,
+              category_2: true
+            }
+          });
+
+          sellerCategoryData.forEach(cat => {
+            if (cat.category_2 && cat.cid) {
+              const count = sellerCidCounts.get(cat.cid) || 0;
+              
+              if (!sellerCategories.has(cat.category_2)) {
+                sellerCategories.set(cat.category_2, { totalCount: 0, cids: [] });
+              }
+              
+              const group = sellerCategories.get(cat.category_2)!;
+              group.totalCount += count;
+              group.cids.push({ cid: cat.cid, count });
+            }
+          });
+        }
+
+        // 3. DDRo 2단계 카테고리 조회
+        const ddroCategories: Array<{
+          category_2: string | null;
+          cid: string;
+          product_count: number;
+        }> = await ddroPrisma.$queryRaw`
           WITH RankedCategories AS (
             SELECT 
               nc.category_2,
@@ -194,6 +346,44 @@ export async function GET(req: NextRequest) {
           GROUP BY category_2, cid
           ORDER BY SUM(product_count) DESC
         `;
+
+        // 4. 병합: Seller 우선
+        const categoryMap = new Map<string, { cid: string; count: number }>();
+        
+        sellerCategories.forEach((data, name) => {
+          const representativeCid = data.cids.sort((a, b) => b.count - a.count)[0].cid;
+          categoryMap.set(name, {
+            cid: representativeCid,
+            count: data.totalCount
+          });
+        });
+
+        ddroCategories.forEach(cat => {
+          if (cat.category_2 && !categoryMap.has(cat.category_2)) {
+            categoryMap.set(cat.category_2, {
+              cid: cat.cid,
+              count: Number(cat.product_count)
+            });
+          }
+        });
+
+        // 5. 정렬
+        const sellerCategoryNames = new Set(sellerCategories.keys());
+        categories = Array.from(categoryMap.entries())
+          .map(([name, data]) => ({
+            category_2: name,
+            cid: data.cid,
+            product_count: data.count
+          }))
+          .sort((a, b) => {
+            const aIsSeller = sellerCategoryNames.has(a.category_2 || '');
+            const bIsSeller = sellerCategoryNames.has(b.category_2 || '');
+            
+            if (aIsSeller && !bIsSeller) return -1;
+            if (!aIsSeller && bIsSeller) return 1;
+            
+            return b.product_count - a.product_count;
+          });
       } else {
         // DDRo OFF: GCONNECT DB (Seller 상품)
         console.log(`[API /category-hierarchy] DDRo OFF - 2단계 조회: ${category1}`);
@@ -281,10 +471,62 @@ export async function GET(req: NextRequest) {
       }> = [];
 
       if (showDdroProducts) {
-        // DDRo ON: DDRo DB 조회
-        console.log(`[API /category-hierarchy] DDRo ON - 3단계 조회: ${category1} > ${category2}`);
+        // DDRo ON: Seller 우선 + DDRo 추가
+        console.log(`[API /category-hierarchy] DDRo ON - 3단계 조회 (Seller 우선): ${category1} > ${category2}`);
         
-        categories = await ddroPrisma.$queryRaw`
+        // 1. Seller 상품 조회
+        const sellerProducts = await prisma.product.findMany({
+          where: { enabled: true, source_cid: { not: null } },
+          select: { source_cid: true }
+        });
+
+        const sellerCidCounts = new Map<string, number>();
+        sellerProducts.forEach(p => {
+          if (p.source_cid) {
+            sellerCidCounts.set(p.source_cid, (sellerCidCounts.get(p.source_cid) || 0) + 1);
+          }
+        });
+
+        const sellerCids = Array.from(sellerCidCounts.keys());
+        
+        // 2. Seller 3단계 카테고리 조회
+        const sellerCategories = new Map<string, { totalCount: number; cids: Array<{ cid: string; count: number }> }>();
+        
+        if (sellerCids.length > 0) {
+          const sellerCategoryData = await prisma.naverCategory.findMany({
+            where: {
+              cid: { in: sellerCids },
+              category_1: category1,
+              category_2: category2,
+              category_3: { not: null }
+            },
+            select: {
+              cid: true,
+              category_3: true
+            }
+          });
+
+          sellerCategoryData.forEach(cat => {
+            if (cat.category_3 && cat.cid) {
+              const count = sellerCidCounts.get(cat.cid) || 0;
+              
+              if (!sellerCategories.has(cat.category_3)) {
+                sellerCategories.set(cat.category_3, { totalCount: 0, cids: [] });
+              }
+              
+              const group = sellerCategories.get(cat.category_3)!;
+              group.totalCount += count;
+              group.cids.push({ cid: cat.cid, count });
+            }
+          });
+        }
+
+        // 3. DDRo 3단계 카테고리 조회
+        const ddroCategories: Array<{
+          category_3: string | null;
+          cid: string;
+          product_count: number;
+        }> = await ddroPrisma.$queryRaw`
           SELECT DISTINCT
             nc.category_3,
             nc.cid,
@@ -297,6 +539,44 @@ export async function GET(req: NextRequest) {
           GROUP BY nc.category_3, nc.cid
           ORDER BY COUNT(DISTINCT ap.id) DESC
         `;
+
+        // 4. 병합: Seller 우선
+        const categoryMap = new Map<string, { cid: string; count: number }>();
+        
+        sellerCategories.forEach((data, name) => {
+          const representativeCid = data.cids.sort((a, b) => b.count - a.count)[0].cid;
+          categoryMap.set(name, {
+            cid: representativeCid,
+            count: data.totalCount
+          });
+        });
+
+        ddroCategories.forEach(cat => {
+          if (cat.category_3 && !categoryMap.has(cat.category_3)) {
+            categoryMap.set(cat.category_3, {
+              cid: cat.cid,
+              count: Number(cat.product_count)
+            });
+          }
+        });
+
+        // 5. 정렬
+        const sellerCategoryNames = new Set(sellerCategories.keys());
+        categories = Array.from(categoryMap.entries())
+          .map(([name, data]) => ({
+            category_3: name,
+            cid: data.cid,
+            product_count: data.count
+          }))
+          .sort((a, b) => {
+            const aIsSeller = sellerCategoryNames.has(a.category_3 || '');
+            const bIsSeller = sellerCategoryNames.has(b.category_3 || '');
+            
+            if (aIsSeller && !bIsSeller) return -1;
+            if (!aIsSeller && bIsSeller) return 1;
+            
+            return b.product_count - a.product_count;
+          });
       } else {
         // DDRo OFF: GCONNECT DB (Seller 상품)
         console.log(`[API /category-hierarchy] DDRo OFF - 3단계 조회: ${category1} > ${category2}`);
