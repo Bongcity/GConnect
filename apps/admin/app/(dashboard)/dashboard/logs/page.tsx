@@ -104,7 +104,7 @@ export default function LogsPage() {
                 <th className="px-4 py-4 text-left text-sm font-semibold text-white w-[100px]">
                   유형
                 </th>
-                <th className="px-4 py-4 text-left text-sm font-semibold text-white w-[80px]">
+                <th className="px-4 py-4 text-left text-sm font-semibold text-white w-[120px]">
                   상태
                 </th>
                 <th className="px-4 py-4 text-right text-sm font-semibold text-white w-[60px]">
