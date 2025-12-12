@@ -83,17 +83,18 @@ export async function GET(req: NextRequest) {
       // 각 cid에 대해 카테고리명 조회
       const uniqueCids = Array.from(cidCounts.keys());
       if (uniqueCids.length > 0) {
-        const categoryData = await ddroPrisma.$queryRaw<
-          Array<{
-            cid: string;
-            category_1: string | null;
-          }>
-        >`
-          SELECT DISTINCT cid, category_1
-          FROM NaverCategories
-          WHERE cid IN (${uniqueCids.join(',')})
-            AND category_1 IS NOT NULL
-        `;
+        // Prisma의 findMany를 사용하여 안전하게 조회
+        const categoryData = await ddroPrisma.naverCategory.findMany({
+          where: {
+            cid: { in: uniqueCids },
+            category_1: { not: null }
+          },
+          select: {
+            cid: true,
+            category_1: true
+          },
+          distinct: ['cid']
+        });
 
         // category_1별로 그룹화하여 상품 수 합산
         const category1Map = new Map<string, { cid: string; count: number }>();
