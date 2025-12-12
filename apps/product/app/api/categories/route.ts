@@ -97,20 +97,25 @@ export async function GET(req: NextRequest) {
         });
 
         // category_1별로 그룹화하여 상품 수 합산
-        const category1Map = new Map<string, { cid: string; count: number }>();
+        // Step 1: category_1별로 모든 cid와 상품 수 수집
+        const category1ToCids = new Map<string, Array<{cid: string, count: number}>>();
         categoryData.forEach(cat => {
           if (cat.category_1) {
             const count = cidCounts.get(cat.cid) || 0;
-            const existing = category1Map.get(cat.category_1);
-            if (!existing || count > existing.count) {
-              category1Map.set(cat.category_1, { cid: cat.cid, count });
-            } else {
-              category1Map.set(cat.category_1, {
-                cid: existing.cid,
-                count: existing.count + count
-              });
+            if (!category1ToCids.has(cat.category_1)) {
+              category1ToCids.set(cat.category_1, []);
             }
+            category1ToCids.get(cat.category_1)!.push({ cid: cat.cid, count });
           }
+        });
+
+        // Step 2: 각 category_1에 대해 상품 수 합산 및 대표 cid 선택
+        const category1Map = new Map<string, { cid: string; count: number }>();
+        category1ToCids.forEach((cids, category1) => {
+          const totalCount = cids.reduce((sum, item) => sum + item.count, 0);
+          // 대표 cid는 상품 수가 가장 많은 것으로 선택
+          const representativeCid = cids.sort((a, b) => b.count - a.count)[0].cid;
+          category1Map.set(category1, { cid: representativeCid, count: totalCount });
         });
 
         // 결과 배열 생성
