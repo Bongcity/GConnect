@@ -86,8 +86,8 @@ export async function GET(req: NextRequest) {
       console.log(`[API /categories] Unique CIDs:`, uniqueCids);
       
       if (uniqueCids.length > 0) {
-        // Prisma의 findMany를 사용하여 안전하게 조회
-        const categoryData = await ddroPrisma.naverCategory.findMany({
+        // DDRo OFF이므로 GCONNECT DB의 NaverCategory 사용
+        const categoryData = await prisma.naverCategory.findMany({
           where: {
             cid: { in: uniqueCids },
             category_1: { not: null }
@@ -96,7 +96,6 @@ export async function GET(req: NextRequest) {
             cid: true,
             category_1: true
           }
-          // distinct 제거 - cid는 이미 고유하므로 불필요
         });
         
         console.log(`[API /categories] 조회된 카테고리 데이터 (${categoryData.length}개):`, categoryData);
