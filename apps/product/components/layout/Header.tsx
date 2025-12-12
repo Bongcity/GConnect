@@ -5,6 +5,9 @@ import { useState, useEffect } from 'react';
 import { MagnifyingGlassIcon, Bars3Icon, XMarkIcon, HeartIcon, ClockIcon } from '@heroicons/react/24/outline';
 import { useRouter } from 'next/navigation';
 
+const SELLER_URL = process.env.NEXT_PUBLIC_SELLER_URL || 'https://seller.gconnect.kr';
+const IR_URL = process.env.NEXT_PUBLIC_IR_URL || 'https://gconnect.kr';
+
 interface Category {
   name: string;
   cid: string;
@@ -192,9 +195,10 @@ export default function Header() {
               <span className="hidden xl:inline text-sm lg:text-base font-medium">최근 본</span>
             </Link>
             <Link
-              href="https://gconnect.co.kr"
+              href={`${SELLER_URL}/register`}
               className="text-white/80 hover:text-white transition-colors font-medium whitespace-nowrap text-sm lg:text-base"
               target="_blank"
+              rel="noopener noreferrer"
             >
               판매자 등록
             </Link>
@@ -267,9 +271,10 @@ export default function Header() {
                   최근 본 상품
                 </Link>
                 <Link
-                  href="https://gconnect.co.kr"
+                  href={`${SELLER_URL}/register`}
                   className="block text-white/80 hover:text-white py-2 transition-colors"
                   target="_blank"
+                  rel="noopener noreferrer"
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   판매자 등록
