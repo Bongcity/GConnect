@@ -43,7 +43,7 @@ export default function ProductsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive' | 'google-exposed' | 'sync-pending'>('all');
+  const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive' | 'google-exposed' | 'google-not-exposed'>('all');
   const [subscriptionData, setSubscriptionData] = useState<SubscriptionData | null>(null);
 
   // 상품 목록 조회
@@ -109,7 +109,7 @@ export default function ProductsPage() {
       (filterStatus === 'active' && product.isActive) ||
       (filterStatus === 'inactive' && !product.isActive) ||
       (filterStatus === 'google-exposed' && product.isGoogleExposed) ||
-      (filterStatus === 'sync-pending' && product.syncStatus === 'PENDING');
+      (filterStatus === 'google-not-exposed' && !product.isGoogleExposed);
     return matchesSearch && matchesFilter;
   });
 
@@ -119,7 +119,7 @@ export default function ProductsPage() {
     active: products.filter(p => p.isActive).length,
     inactive: products.filter(p => !p.isActive).length,
     googleExposed: products.filter(p => p.isGoogleExposed).length,
-    syncPending: products.filter(p => p.syncStatus === 'PENDING').length,
+    googleNotExposed: products.filter(p => !p.isGoogleExposed).length,
   };
 
   // 동기화 상태 아이콘
@@ -231,9 +231,9 @@ export default function ProductsPage() {
             <p className="text-sm text-white/60 mb-1">구글 노출</p>
             <p className="text-3xl font-bold text-brand-cyan">{stats.googleExposed}</p>
           </div>
-          <div className="glass-card p-4 cursor-pointer hover:bg-white/5 transition-colors" onClick={() => setFilterStatus('sync-pending')}>
-            <p className="text-sm text-white/60 mb-1">동기화 대기</p>
-            <p className="text-3xl font-bold text-yellow-400">{stats.syncPending}</p>
+          <div className="glass-card p-4 cursor-pointer hover:bg-white/5 transition-colors" onClick={() => setFilterStatus('google-not-exposed')}>
+            <p className="text-sm text-white/60 mb-1">구글 미노출</p>
+            <p className="text-3xl font-bold text-orange-400">{stats.googleNotExposed}</p>
           </div>
         </div>
 
@@ -298,15 +298,15 @@ export default function ProductsPage() {
               <span className="ml-2 text-xs opacity-70">({stats.googleExposed})</span>
             </button>
             <button
-              onClick={() => setFilterStatus('sync-pending')}
+              onClick={() => setFilterStatus('google-not-exposed')}
               className={`px-4 py-3 rounded-xl font-medium transition-colors ${
-                filterStatus === 'sync-pending'
+                filterStatus === 'google-not-exposed'
                   ? 'bg-brand-neon text-brand-navy'
                   : 'bg-white/5 text-white/80 hover:bg-white/10'
               }`}
             >
-              동기화 대기
-              <span className="ml-2 text-xs opacity-70">({stats.syncPending})</span>
+              구글 미노출
+              <span className="ml-2 text-xs opacity-70">({stats.googleNotExposed})</span>
             </button>
           </div>
         </div>
