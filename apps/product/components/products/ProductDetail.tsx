@@ -20,6 +20,8 @@ export default function ProductDetail({ product, relatedProducts = [] }: Product
   const [isDescriptionLoaded, setIsDescriptionLoaded] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [activeDeliveryTab, setActiveDeliveryTab] = useState('delivery'); // delivery, exchange, return, refund
+  const [showShareToast, setShowShareToast] = useState(false);
+  const [shareToastMessage, setShareToastMessage] = useState('');
   const iframeRef = useRef<HTMLIFrameElement>(null);
   
   // 상품 타입 구분: SELLER (네이버 API 연동) vs GLOBAL (DDRo)
@@ -71,6 +73,51 @@ export default function ProductDetail({ product, relatedProducts = [] }: Product
   const formatPrice = (price: number | null) => {
     if (!price) return '가격 문의';
     return new Intl.NumberFormat('ko-KR').format(price);
+  };
+
+  // 공유하기 핸들러
+  const handleShare = async () => {
+    const shareData = {
+      title: product.productName,
+      text: `${product.productName} - GConnect에서 확인하세요`,
+      url: window.location.href,
+    };
+
+    try {
+      // Web Share API 지원 여부 확인 (주로 모바일)
+      if (navigator.share) {
+        await navigator.share(shareData);
+        showToast('공유되었습니다! 🎉');
+      } else {
+        // Web Share API 미지원 시 클립보드 복사
+        await navigator.clipboard.writeText(window.location.href);
+        showToast('링크가 복사되었습니다! 📋');
+      }
+    } catch (error: any) {
+      // 사용자가 공유를 취소한 경우 (AbortError)
+      if (error.name === 'AbortError') {
+        return;
+      }
+      
+      // 그 외 오류 발생 시 클립보드 복사 시도
+      try {
+        await navigator.clipboard.writeText(window.location.href);
+        showToast('링크가 복사되었습니다! 📋');
+      } catch (clipboardError) {
+        showToast('공유에 실패했습니다. 다시 시도해주세요.');
+        console.error('[ProductDetail] 공유 오류:', clipboardError);
+      }
+    }
+  };
+
+  // 토스트 메시지 표시
+  const showToast = (message: string) => {
+    setShareToastMessage(message);
+    setShowShareToast(true);
+    
+    setTimeout(() => {
+      setShowShareToast(false);
+    }, 3000);
   };
 
   // 할인율 계산
@@ -456,7 +503,10 @@ export default function ProductDetail({ product, relatedProducts = [] }: Product
                   )}
                   좋아요
                 </button>
-                <button className="btn-secondary flex-1 flex items-center justify-center gap-2">
+                <button
+                  onClick={handleShare}
+                  className="btn-secondary flex-1 flex items-center justify-center gap-2"
+                >
                   <ShareIcon className="w-5 h-5" />
                   공유하기
                 </button>
@@ -710,6 +760,17 @@ export default function ProductDetail({ product, relatedProducts = [] }: Product
               {relatedProducts.map((relatedProduct) => (
                 <ProductCard key={relatedProduct.id} product={relatedProduct} />
               ))}
+            </div>
+          </div>
+        )}
+
+        {/* 공유 토스트 메시지 */}
+        {showShareToast && (
+          <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 animate-bounce-in">
+            <div className="glass-card px-6 py-4 shadow-2xl shadow-brand-neon/20">
+              <p className="text-white font-medium text-center whitespace-nowrap">
+                {shareToastMessage}
+              </p>
             </div>
           </div>
         )}

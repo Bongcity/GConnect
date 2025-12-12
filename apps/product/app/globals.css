@@ -61,3 +61,24 @@
   }
 }
 
+@layer utilities {
+  .animate-bounce-in {
+    animation: bounce-in 0.3s ease-out;
+  }
+
+  @keyframes bounce-in {
+    0% {
+      opacity: 0;
+      transform: translateX(-50%) translateY(20px);
+    }
+    50% {
+      opacity: 1;
+      transform: translateX(-50%) translateY(-5px);
+    }
+    100% {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+  }
+}
+
