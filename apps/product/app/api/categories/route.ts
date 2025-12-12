@@ -30,8 +30,73 @@ export async function GET(req: NextRequest) {
     }> = [];
 
     if (showDdroProducts) {
-      // DDRo ON: DDRo 상품의 카테고리 조회
-      categories = await ddroPrisma.$queryRaw`
+      // DDRo ON: Seller 카테고리 우선 + DDRo 카테고리 추가
+      console.log('[API /categories] DDRo ON - Seller 카테고리 우선 조회');
+      
+      // 1. Seller 상품 카테고리 조회 (GCONNECT DB)
+      const sellerProducts = await prisma.product.findMany({
+        where: {
+          enabled: true,
+          source_cid: { not: null }
+        },
+        select: {
+          source_cid: true
+        }
+      });
+
+      const sellerCidCounts = new Map<string, number>();
+      sellerProducts.forEach(p => {
+        if (p.source_cid) {
+          sellerCidCounts.set(p.source_cid, (sellerCidCounts.get(p.source_cid) || 0) + 1);
+        }
+      });
+
+      const sellerCids = Array.from(sellerCidCounts.keys());
+      console.log(`[API /categories] Seller 상품 CID ${sellerCids.length}개`);
+
+      // 2. Seller 카테고리명 조회
+      const sellerCategories = new Map<string, { cid: string; count: number }>();
+      
+      if (sellerCids.length > 0) {
+        const sellerCategoryData = await prisma.naverCategory.findMany({
+          where: {
+            cid: { in: sellerCids },
+            category_1: { not: null }
+          },
+          select: {
+            cid: true,
+            category_1: true
+          }
+        });
+
+        // category_1별로 그룹화
+        const category1ToCids = new Map<string, Array<{cid: string, count: number}>>();
+        sellerCategoryData.forEach(cat => {
+          if (cat.category_1 && cat.cid) {
+            const count = sellerCidCounts.get(cat.cid) || 0;
+            if (!category1ToCids.has(cat.category_1)) {
+              category1ToCids.set(cat.category_1, []);
+            }
+            category1ToCids.get(cat.category_1)!.push({ cid: cat.cid, count });
+          }
+        });
+
+        // 각 category_1의 총 상품 수와 대표 cid 계산
+        category1ToCids.forEach((cids, category1) => {
+          const totalCount = cids.reduce((sum, item) => sum + item.count, 0);
+          const representativeCid = cids.sort((a, b) => b.count - a.count)[0].cid;
+          sellerCategories.set(category1, { cid: representativeCid, count: totalCount });
+        });
+
+        console.log(`[API /categories] Seller 카테고리 ${sellerCategories.size}개`);
+      }
+
+      // 3. DDRo 카테고리 조회 (Seller에 없는 카테고리만)
+      const ddroCategories: Array<{
+        category_name: string;
+        category_cid: string;
+        product_count: number;
+      }> = await ddroPrisma.$queryRaw`
         WITH CategoryStats AS (
           SELECT 
             nc.category_1,
@@ -51,13 +116,56 @@ export async function GET(req: NextRequest) {
           FROM CategoryStats
           GROUP BY category_1
         )
-        SELECT TOP (${limit})
+        SELECT 
           category_1 as category_name,
           representative_cid as category_cid,
           total_product_count as product_count
         FROM GroupedCategories
         ORDER BY total_product_count DESC
       `;
+
+      console.log(`[API /categories] DDRo 카테고리 ${ddroCategories.length}개`);
+
+      // 4. 병합: Seller 우선, DDRo 추가 (중복 제거)
+      const categoryMap = new Map<string, { cid: string; count: number }>();
+      
+      // Seller 카테고리 우선 추가
+      sellerCategories.forEach((data, name) => {
+        categoryMap.set(name, data);
+      });
+
+      // DDRo 카테고리 추가 (중복 제외)
+      ddroCategories.forEach(cat => {
+        if (!categoryMap.has(cat.category_name)) {
+          categoryMap.set(cat.category_name, {
+            cid: cat.category_cid,
+            count: Number(cat.product_count)
+          });
+        }
+      });
+
+      // 5. 결과 배열 생성 (Seller 우선 정렬)
+      const sellerCategoryNames = new Set(sellerCategories.keys());
+      categories = Array.from(categoryMap.entries())
+        .map(([name, data]) => ({
+          category_name: name,
+          category_cid: data.cid,
+          product_count: data.count
+        }))
+        .sort((a, b) => {
+          // Seller 카테고리 우선
+          const aIsSeller = sellerCategoryNames.has(a.category_name);
+          const bIsSeller = sellerCategoryNames.has(b.category_name);
+          
+          if (aIsSeller && !bIsSeller) return -1;
+          if (!aIsSeller && bIsSeller) return 1;
+          
+          // 같은 그룹 내에서는 상품 수 기준
+          return b.product_count - a.product_count;
+        })
+        .slice(0, limit);
+
+      console.log(`[API /categories] 최종 카테고리 ${categories.length}개 (Seller 우선)`);
     } else {
       // DDRo OFF: Seller 상품(GCONNECT)의 카테고리만 조회
       // GCONNECT DB에서 Seller 상품의 source_cid를 그룹화하고
