@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
     // 1순위: cid가 있으면 cid로 조회
     if (cid) {
       keywords = await ddroPrisma.$queryRaw`
-        SELECT TOP (${limit})
+        SELECT DISTINCT TOP (${limit})
           keyword,
           rank,
           category_1
@@ -59,7 +59,7 @@ export async function GET(req: NextRequest) {
     if (keywords.length === 0 && category1) {
       if (category1 && category2 && category3) {
         keywords = await ddroPrisma.$queryRaw`
-          SELECT TOP (${limit})
+          SELECT DISTINCT TOP (${limit})
             keyword,
             rank,
             category_1
@@ -74,7 +74,7 @@ export async function GET(req: NextRequest) {
         `;
       } else if (category1 && category2) {
         keywords = await ddroPrisma.$queryRaw`
-          SELECT TOP (${limit})
+          SELECT DISTINCT TOP (${limit})
             keyword,
             rank,
             category_1
@@ -88,7 +88,7 @@ export async function GET(req: NextRequest) {
         `;
       } else if (category1) {
         keywords = await ddroPrisma.$queryRaw`
-          SELECT TOP (${limit})
+          SELECT DISTINCT TOP (${limit})
             keyword,
             rank,
             category_1
@@ -107,7 +107,7 @@ export async function GET(req: NextRequest) {
     // 3순위: 여전히 결과 없으면 전체 인기 키워드 반환
     if (keywords.length === 0) {
       keywords = await ddroPrisma.$queryRaw`
-        SELECT TOP (${limit})
+        SELECT DISTINCT TOP (${limit})
           keyword,
           rank,
           category_1
