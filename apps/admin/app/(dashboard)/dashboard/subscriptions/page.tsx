@@ -214,11 +214,11 @@ export default function SubscriptionsPage() {
             onChange={(e) => setFilterStatus(e.target.value as any)}
             className="px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-brand-neon/50"
           >
-            <option value="all">전체 상태</option>
-            <option value="ACTIVE">활성</option>
-            <option value="EXPIRED">만료</option>
-            <option value="CANCELLED">취소</option>
-            <option value="TRIAL">체험</option>
+            <option value="all" className="bg-white text-gray-900">전체 상태</option>
+            <option value="ACTIVE" className="bg-white text-gray-900">활성</option>
+            <option value="EXPIRED" className="bg-white text-gray-900">만료</option>
+            <option value="CANCELLED" className="bg-white text-gray-900">취소</option>
+            <option value="TRIAL" className="bg-white text-gray-900">체험</option>
           </select>
 
           {/* 플랜 필터 */}
@@ -227,11 +227,11 @@ export default function SubscriptionsPage() {
             onChange={(e) => setFilterPlan(e.target.value)}
             className="px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-brand-neon/50"
           >
-            <option value="all">전체 플랜</option>
-            <option value="FREE">무료 체험 (5개)</option>
-            <option value="STARTER">Starter (10개)</option>
-            <option value="PRO">Pro (50개)</option>
-            <option value="ENTERPRISE">Enterprise (50개 초과)</option>
+            <option value="all" className="bg-white text-gray-900">전체 플랜</option>
+            <option value="FREE" className="bg-white text-gray-900">무료 체험 (5개)</option>
+            <option value="STARTER" className="bg-white text-gray-900">Starter (10개)</option>
+            <option value="PRO" className="bg-white text-gray-900">Pro (50개)</option>
+            <option value="ENTERPRISE" className="bg-white text-gray-900">Enterprise (50개 초과)</option>
           </select>
         </div>
       </div>
@@ -358,10 +358,10 @@ export default function SubscriptionsPage() {
                   onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
                   className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-brand-neon/50"
                 >
-                  <option value="ACTIVE">활성</option>
-                  <option value="EXPIRED">만료</option>
-                  <option value="CANCELLED">취소</option>
-                  <option value="TRIAL">체험</option>
+                  <option value="ACTIVE" className="bg-white text-gray-900">활성</option>
+                  <option value="EXPIRED" className="bg-white text-gray-900">만료</option>
+                  <option value="CANCELLED" className="bg-white text-gray-900">취소</option>
+                  <option value="TRIAL" className="bg-white text-gray-900">체험</option>
                 </select>
               </div>
 
