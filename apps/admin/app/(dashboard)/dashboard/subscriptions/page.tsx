@@ -228,10 +228,10 @@ export default function SubscriptionsPage() {
             className="px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-brand-neon/50"
           >
             <option value="all">전체 플랜</option>
-            <option value="FREE">무료 체험</option>
-            <option value="STARTER">Starter (10K)</option>
-            <option value="PRO">Pro (50K)</option>
-            <option value="ENTERPRISE">Enterprise (50K+)</option>
+            <option value="FREE">무료 체험 (5개)</option>
+            <option value="STARTER">Starter (10개)</option>
+            <option value="PRO">Pro (50개)</option>
+            <option value="ENTERPRISE">Enterprise (50개 초과)</option>
           </select>
         </div>
       </div>
