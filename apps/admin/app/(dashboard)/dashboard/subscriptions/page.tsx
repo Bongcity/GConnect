@@ -38,6 +38,13 @@ export default function SubscriptionsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'ACTIVE' | 'EXPIRED' | 'CANCELLED'>('all');
   const [filterPlan, setFilterPlan] = useState<string>('all');
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingSubscription, setEditingSubscription] = useState<Subscription | null>(null);
+  const [editForm, setEditForm] = useState({
+    status: '',
+    endDate: '',
+    autoRenew: false,
+  });
 
   useEffect(() => {
     fetchSubscriptions();
@@ -54,6 +61,40 @@ export default function SubscriptionsPage() {
       console.error('Failed to fetch subscriptions:', error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleEdit = (subscription: Subscription) => {
+    setEditingSubscription(subscription);
+    setEditForm({
+      status: subscription.status,
+      endDate: subscription.endDate ? subscription.endDate.split('T')[0] : '',
+      autoRenew: subscription.autoRenew,
+    });
+    setIsEditModalOpen(true);
+  };
+
+  const handleUpdate = async () => {
+    if (!editingSubscription) return;
+
+    try {
+      const response = await fetch(`/api/admin/subscriptions/${editingSubscription.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editForm),
+      });
+
+      if (response.ok) {
+        alert('구독이 수정되었습니다.');
+        setIsEditModalOpen(false);
+        fetchSubscriptions();
+      } else {
+        const error = await response.json();
+        alert(error.error || '구독 수정에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('Failed to update subscription:', error);
+      alert('구독 수정 중 오류가 발생했습니다.');
     }
   };
 
@@ -277,7 +318,10 @@ export default function SubscriptionsPage() {
                       </span>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <button className="btn-secondary text-sm flex items-center gap-2 ml-auto">
+                      <button 
+                        onClick={() => handleEdit(sub)}
+                        className="btn-secondary text-sm flex items-center gap-2 ml-auto"
+                      >
                         <PencilIcon className="w-4 h-4" />
                         수정
                       </button>
@@ -289,6 +333,86 @@ export default function SubscriptionsPage() {
           </table>
         </div>
       </div>
+
+      {/* 수정 모달 */}
+      {isEditModalOpen && editingSubscription && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="glass-card max-w-2xl w-full p-8">
+            <h2 className="text-2xl font-bold text-white mb-6">구독 정보 수정</h2>
+
+            {/* 사용자 정보 */}
+            <div className="mb-6 p-4 rounded-lg bg-white/5 border border-white/10">
+              <p className="text-sm text-white/60 mb-1">사용자</p>
+              <p className="text-white font-medium">{editingSubscription.user.name}</p>
+              <p className="text-sm text-white/60">{editingSubscription.user.email}</p>
+            </div>
+
+            <div className="space-y-4 mb-6">
+              {/* 상태 */}
+              <div>
+                <label className="block text-sm font-medium text-white/80 mb-2">
+                  구독 상태
+                </label>
+                <select
+                  value={editForm.status}
+                  onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
+                  className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-brand-neon/50"
+                >
+                  <option value="ACTIVE">활성</option>
+                  <option value="EXPIRED">만료</option>
+                  <option value="CANCELLED">취소</option>
+                  <option value="TRIAL">체험</option>
+                </select>
+              </div>
+
+              {/* 종료일 */}
+              <div>
+                <label className="block text-sm font-medium text-white/80 mb-2">
+                  종료일
+                </label>
+                <input
+                  type="date"
+                  value={editForm.endDate}
+                  onChange={(e) => setEditForm({ ...editForm, endDate: e.target.value })}
+                  className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-brand-neon/50"
+                />
+                <p className="text-xs text-white/50 mt-1">
+                  비워두면 무제한으로 설정됩니다
+                </p>
+              </div>
+
+              {/* 자동갱신 */}
+              <div>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={editForm.autoRenew}
+                    onChange={(e) => setEditForm({ ...editForm, autoRenew: e.target.checked })}
+                    className="w-5 h-5 rounded border-white/20 bg-white/5 text-brand-neon focus:ring-brand-neon/50"
+                  />
+                  <span className="text-white/80 font-medium">자동 갱신</span>
+                </label>
+              </div>
+            </div>
+
+            {/* 버튼 */}
+            <div className="flex gap-3">
+              <button
+                onClick={() => setIsEditModalOpen(false)}
+                className="flex-1 px-6 py-3 rounded-xl font-medium bg-white/5 text-white hover:bg-white/10 transition-all"
+              >
+                취소
+              </button>
+              <button
+                onClick={handleUpdate}
+                className="flex-1 px-6 py-3 rounded-xl font-medium bg-brand-neon text-brand-navy hover:bg-brand-cyan transition-all"
+              >
+                저장
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
