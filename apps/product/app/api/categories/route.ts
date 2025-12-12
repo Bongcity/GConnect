@@ -82,6 +82,9 @@ export async function GET(req: NextRequest) {
 
       // 각 cid에 대해 카테고리명 조회
       const uniqueCids = Array.from(cidCounts.keys());
+      console.log(`[API /categories] DDRo OFF - Seller 상품 source_cid 개수: ${uniqueCids.length}`);
+      console.log(`[API /categories] Unique CIDs:`, uniqueCids);
+      
       if (uniqueCids.length > 0) {
         // Prisma의 findMany를 사용하여 안전하게 조회
         const categoryData = await ddroPrisma.naverCategory.findMany({
@@ -92,9 +95,10 @@ export async function GET(req: NextRequest) {
           select: {
             cid: true,
             category_1: true
-          },
-          distinct: ['cid']
+          }
         });
+        
+        console.log(`[API /categories] 조회된 카테고리 데이터:`, categoryData);
 
         // category_1별로 그룹화하여 상품 수 합산
         // Step 1: category_1별로 모든 cid와 상품 수 수집
@@ -116,6 +120,7 @@ export async function GET(req: NextRequest) {
           // 대표 cid는 상품 수가 가장 많은 것으로 선택
           const representativeCid = cids.sort((a, b) => b.count - a.count)[0].cid;
           category1Map.set(category1, { cid: representativeCid, count: totalCount });
+          console.log(`[API /categories] ${category1}: ${totalCount}개 상품, 대표 cid: ${representativeCid}`);
         });
 
         // 결과 배열 생성
