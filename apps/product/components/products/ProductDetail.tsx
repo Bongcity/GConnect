@@ -6,6 +6,7 @@ import { ShoppingBagIcon, HeartIcon, ShareIcon, ChevronLeftIcon, ChevronRightIco
 import { HeartIcon as HeartIconSolid } from '@heroicons/react/24/solid';
 import ProductCard from './ProductCard';
 import type { UnifiedProduct } from '@/types/product';
+import { favoriteStorage, recentStorage } from '@/lib/utils/localStorage';
 
 interface ProductDetailProps {
   product: UnifiedProduct;
@@ -24,10 +25,18 @@ export default function ProductDetail({ product, relatedProducts = [] }: Product
   // 상품 타입 구분: SELLER (네이버 API 연동) vs GLOBAL (DDRo)
   const detail = product.detail;
 
-  // 클라이언트 마운트 확인
+  // 클라이언트 마운트 확인 및 로컬스토리지 연동
   useEffect(() => {
     setMounted(true);
-  }, []);
+    
+    // 좋아요 상태 로드
+    if (typeof window !== 'undefined') {
+      setIsLiked(favoriteStorage.has(product.id));
+      
+      // 최근 본 상품에 자동 추가
+      recentStorage.add(product);
+    }
+  }, [product.id]);
 
   // iframe 로드 완료 시
   const handleIframeLoad = useCallback(() => {
@@ -434,7 +443,10 @@ export default function ProductDetail({ product, relatedProducts = [] }: Product
             <div className="space-y-3 pt-4">
               <div className="flex gap-3">
                 <button
-                  onClick={() => setIsLiked(!isLiked)}
+                  onClick={() => {
+                    const newLiked = favoriteStorage.toggle(product);
+                    setIsLiked(newLiked);
+                  }}
                   className="btn-secondary flex-1 flex items-center justify-center gap-2"
                 >
                   {isLiked ? (

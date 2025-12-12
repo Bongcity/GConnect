@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
-import { MagnifyingGlassIcon, Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline';
+import { MagnifyingGlassIcon, Bars3Icon, XMarkIcon, HeartIcon, ClockIcon } from '@heroicons/react/24/outline';
 import { useRouter } from 'next/navigation';
 
 interface Category {
@@ -176,6 +176,22 @@ export default function Header() {
               전체 상품
             </Link>
             <Link
+              href="/favorites"
+              className="text-white/80 hover:text-white transition-colors flex items-center gap-2 whitespace-nowrap"
+              title="좋아요 상품"
+            >
+              <HeartIcon className="w-5 h-5" />
+              <span className="hidden xl:inline text-sm lg:text-base font-medium">좋아요</span>
+            </Link>
+            <Link
+              href="/recent"
+              className="text-white/80 hover:text-white transition-colors flex items-center gap-2 whitespace-nowrap"
+              title="최근 본 상품"
+            >
+              <ClockIcon className="w-5 h-5" />
+              <span className="hidden xl:inline text-sm lg:text-base font-medium">최근 본</span>
+            </Link>
+            <Link
               href="https://gconnect.co.kr"
               className="text-white/80 hover:text-white transition-colors font-medium whitespace-nowrap text-sm lg:text-base"
               target="_blank"
@@ -233,6 +249,22 @@ export default function Header() {
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   전체 상품
+                </Link>
+                <Link
+                  href="/favorites"
+                  className="flex items-center gap-2 text-white/80 hover:text-white py-2 transition-colors"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  <HeartIcon className="w-5 h-5" />
+                  좋아요 상품
+                </Link>
+                <Link
+                  href="/recent"
+                  className="flex items-center gap-2 text-white/80 hover:text-white py-2 transition-colors"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  <ClockIcon className="w-5 h-5" />
+                  최근 본 상품
                 </Link>
                 <Link
                   href="https://gconnect.co.kr"
