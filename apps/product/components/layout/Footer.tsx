@@ -1,5 +1,8 @@
 import Link from 'next/link';
 
+const SELLER_URL = process.env.NEXT_PUBLIC_SELLER_URL || 'https://seller.gconnect.kr';
+const IR_URL = process.env.NEXT_PUBLIC_IR_URL || 'https://gconnect.kr';
+
 export default function Footer() {
   return (
     <footer className="bg-white/5 backdrop-blur-sm border-t border-white/10 mt-auto">
@@ -57,7 +60,7 @@ export default function Footer() {
             <ul className="space-y-2">
               <li>
                 <a
-                  href="https://gconnect.co.kr"
+                  href={`${SELLER_URL}/register`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-white/60 hover:text-white text-sm transition-colors"
@@ -67,7 +70,7 @@ export default function Footer() {
               </li>
               <li>
                 <a
-                  href="https://gconnect.co.kr/how-it-works"
+                  href={`${IR_URL}/how-it-works`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-white/60 hover:text-white text-sm transition-colors"
@@ -83,7 +86,7 @@ export default function Footer() {
             <h3 className="text-white font-semibold mb-4">고객 지원</h3>
             <ul className="space-y-2">
               <li>
-                <a href="mailto:support@gconnect.co.kr" className="text-white/60 hover:text-white text-sm transition-colors">
+                <a href="mailto:support@gconnect.kr" className="text-white/60 hover:text-white text-sm transition-colors">
                   이메일 문의
                 </a>
               </li>
