@@ -265,6 +265,7 @@ export async function POST() {
               affiliate_store_id: productData.storeId ? BigInt(productData.storeId) : null,
               store_name: productData.storeName || null,
               brand_store: productData.brandStore ? true : false, // 명시적으로 0 또는 1
+              store_status: productData.storeStatus || 'ACTIVE',  // 상품 상태 ('ACTIVE' | 'INACTIVE')
               
               // 수수료 정보
               commission_rate: productData.commissionRate || null,
@@ -280,7 +281,7 @@ export async function POST() {
               promotion_json: productData.promotionJson || null,
               
               source_cid: sourceCid,
-              enabled: true,
+              enabled: productData.storeStatus === 'ACTIVE',  // ACTIVE 상품만 활성화
               updated_at: new Date(),
             },
           });
@@ -301,6 +302,7 @@ export async function POST() {
               affiliate_store_id: productData.storeId ? BigInt(productData.storeId) : null,
               store_name: productData.storeName || null,
               brand_store: productData.brandStore ? true : false, // 명시적으로 0 또는 1
+              store_status: productData.storeStatus || 'ACTIVE',  // 상품 상태 ('ACTIVE' | 'INACTIVE')
               
               // 수수료 정보
               commission_rate: productData.commissionRate || null,
@@ -316,7 +318,7 @@ export async function POST() {
               promotion_json: productData.promotionJson || null,
               
               source_cid: sourceCid,
-              enabled: true,
+              enabled: productData.storeStatus === 'ACTIVE',  // ACTIVE 상품만 활성화
               created_at: new Date(),
               updated_at: new Date(),
             },

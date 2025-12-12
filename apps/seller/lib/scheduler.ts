@@ -388,6 +388,7 @@ async function syncProducts(userId: string, user: any) {
                   affiliate_store_id: productData.storeId ? BigInt(productData.storeId) : null,
                   store_name: productData.storeName || null,
                   brand_store: productData.brandStore ? true : false,
+                  store_status: productData.storeStatus || 'ACTIVE',  // 상품 상태 ('ACTIVE' | 'INACTIVE')
                   
                   // 수수료 정보
                   commission_rate: productData.commissionRate || null,
@@ -402,7 +403,7 @@ async function syncProducts(userId: string, user: any) {
                   product_description_url: productData.descriptionUrl || null,
                   promotion_json: productData.promotionJson || null,
                   
-                  enabled: true,
+                  enabled: productData.storeStatus === 'ACTIVE',  // ACTIVE 상품만 활성화
                   updated_at: new Date(),
                 },
               });
@@ -424,6 +425,7 @@ async function syncProducts(userId: string, user: any) {
                   affiliate_store_id: productData.storeId ? BigInt(productData.storeId) : null,
                   store_name: productData.storeName || null,
                   brand_store: productData.brandStore ? true : false,
+                  store_status: productData.storeStatus || 'ACTIVE',  // 상품 상태 ('ACTIVE' | 'INACTIVE')
                   
                   // 수수료 정보
                   commission_rate: productData.commissionRate || null,
@@ -438,7 +440,7 @@ async function syncProducts(userId: string, user: any) {
                   product_description_url: productData.descriptionUrl || null,
                   promotion_json: productData.promotionJson || null,
                   
-                  enabled: true,
+                  enabled: productData.storeStatus === 'ACTIVE',  // ACTIVE 상품만 활성화
                   created_at: new Date(),
                   updated_at: new Date(),
                 },

@@ -499,6 +499,7 @@ export interface TransformedProduct {
   storeId?: string;                    // 상점 ID
   storeName?: string;                  // 상점명
   brandStore?: boolean;                // 브랜드 스토어 여부
+  storeStatus?: string;                // 상점 상태 ('ACTIVE' | 'INACTIVE')
   discountedRate?: number;             // 할인율 (%)
   commissionRate?: number;             // 수수료율
   promotionCommissionRate?: number;    // 프로모션 수수료율
@@ -588,6 +589,24 @@ export function transformNaverProduct(naverProduct: any, detailData?: any, store
 
   // 재고
   const stockQuantity = channelProduct.stockQuantity;
+
+  // 상태 매핑 (statusType + displayStatus 조합)
+  const statusType = channelProduct.statusType || '';
+  const displayStatus = channelProduct.channelProductDisplayStatusType || channelProduct.displayStatus || '';
+  
+  // SALE/ON_SALE + ON이면 ACTIVE, 그 외는 INACTIVE
+  const isActive = 
+    (statusType === 'SALE' || statusType === 'ON_SALE') &&
+    (displayStatus === 'ON' || displayStatus === 'DISPLAY');
+  
+  const storeStatus = isActive ? 'ACTIVE' : 'INACTIVE';
+  
+  console.log('📊 상품 상태:', {
+    statusType,
+    displayStatus,
+    storeStatus,
+    isActive,
+  });
 
   // 이미지 URL
   const imageUrl = channelProduct.representativeImage?.url;
@@ -789,6 +808,7 @@ export function transformNaverProduct(naverProduct: any, detailData?: any, store
     storeId: affiliateStoreId,
     storeName: storeName,
     brandStore: brandStore,
+    storeStatus: storeStatus,
     discountedRate: discountRate,
     commissionRate: commissionRate > 0 ? commissionRate : undefined,
     promotionCommissionRate: promotionCommissionRate > 0 ? promotionCommissionRate : undefined,
