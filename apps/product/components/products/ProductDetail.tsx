@@ -332,37 +332,56 @@ export default function ProductDetail({ product, relatedProducts = [] }: Product
             {images.length > 1 && (
               <div className="relative">
                 {/* 스크롤 가능한 썸네일 컨테이너 */}
-                <div className="overflow-x-auto overflow-y-hidden scrollbar-hide scroll-smooth -mx-1 px-1">
-                  <div className="flex gap-3 min-w-min py-1">
+                <div 
+                  className="overflow-x-scroll overflow-y-hidden scrollbar-hide scroll-smooth -mx-1 px-1"
+                  style={{ 
+                    cursor: 'grab',
+                    WebkitOverflowScrolling: 'touch'
+                  }}
+                  onMouseDown={(e) => {
+                    const ele = e.currentTarget;
+                    ele.style.cursor = 'grabbing';
+                    const startX = e.pageX - ele.offsetLeft;
+                    const scrollLeft = ele.scrollLeft;
+                    
+                    const mouseMoveHandler = (e: MouseEvent) => {
+                      const x = e.pageX - ele.offsetLeft;
+                      const walk = (x - startX) * 2;
+                      ele.scrollLeft = scrollLeft - walk;
+                    };
+                    
+                    const mouseUpHandler = () => {
+                      ele.style.cursor = 'grab';
+                      document.removeEventListener('mousemove', mouseMoveHandler);
+                      document.removeEventListener('mouseup', mouseUpHandler);
+                    };
+                    
+                    document.addEventListener('mousemove', mouseMoveHandler);
+                    document.addEventListener('mouseup', mouseUpHandler);
+                  }}
+                >
+                  <div className="flex gap-4 w-max py-2">
                     {images.map((img, index) => (
                       <button
                         key={index}
                         onClick={() => setSelectedImageIndex(index)}
-                        className={`relative flex-shrink-0 w-24 h-24 rounded-xl transition-all duration-200 ${
+                        className={`relative flex-shrink-0 w-24 h-24 rounded-xl transition-all duration-300 ${
                           index === selectedImageIndex
-                            ? 'ring-3 ring-brand-neon opacity-100'
-                            : 'ring-1 ring-white/10 opacity-50 hover:opacity-80 hover:ring-white/30'
+                            ? 'ring-4 ring-brand-neon shadow-[0_0_20px_rgba(57,255,20,0.5)] opacity-100 scale-105'
+                            : 'ring-2 ring-white/10 opacity-40 hover:opacity-70 hover:ring-white/30 hover:scale-102'
                         }`}
                       >
-                        {/* 배경 그라디언트 효과 */}
+                        {/* 배경 그라디언트 효과 (선택된 경우만) */}
                         {index === selectedImageIndex && (
-                          <div className="absolute inset-0 bg-gradient-to-br from-brand-neon/20 to-brand-cyan/20 rounded-xl" />
+                          <div className="absolute inset-0 bg-gradient-to-br from-brand-neon/30 to-brand-cyan/30 rounded-xl animate-pulse" />
                         )}
                         
                         <img
                           src={img}
                           alt={`${product.productName} ${index + 1}`}
                           className="relative w-full h-full object-cover rounded-xl"
+                          draggable="false"
                         />
-                        
-                        {/* 이미지 순서 표시 */}
-                        <div className={`absolute top-2 right-2 text-xs font-bold px-2 py-1 rounded-lg backdrop-blur-md ${
-                          index === selectedImageIndex 
-                            ? 'bg-brand-neon/90 text-brand-navy' 
-                            : 'bg-black/60 text-white'
-                        }`}>
-                          {index + 1}
-                        </div>
                       </button>
                     ))}
                   </div>

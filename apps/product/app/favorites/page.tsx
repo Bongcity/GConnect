@@ -89,7 +89,9 @@ export default function FavoritesPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {favorites.map((product) => (
                 <div key={product.id} className="relative group">
-                  <ProductCard product={product} />
+                  <div className="[&_.glass-card]:border-0">
+                    <ProductCard product={product} />
+                  </div>
                   
                   {/* 제거 버튼 */}
                   <button
